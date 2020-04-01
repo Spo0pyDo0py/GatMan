@@ -88,47 +88,32 @@ void SceneApp::Render()
 void SceneApp::InitPlayer()
 {
 	// setup the mesh for the player
-	player_.set_mesh(primitive_builder_->GetDefaultCubeMesh());
+	player_.setInputMan(input_manager_);
+	player_.setPrimitiveBuilder(primitive_builder_);
+	player_.setWorld(world_);
 
-	// create a physics body for the player
-	b2BodyDef player_body_def;
-	player_body_def.type = b2_dynamicBody;
-	player_body_def.position = b2Vec2(0.0f, 4.0f);
+	player_.playerInit();
 
-	player_body_ = world_->CreateBody(&player_body_def);
-
-	// create the shape for the player
-	b2PolygonShape player_shape;
-	player_shape.SetAsBox(0.5f, 0.5f);
-
-	// create the fixture
-	b2FixtureDef player_fixture_def;
-	player_fixture_def.shape = &player_shape;
-	player_fixture_def.density = 1.0f;
-
-	// create the fixture on the rigid body
-	player_body_->CreateFixture(&player_fixture_def);
-
-	// update visuals from simulation data
-	player_.UpdateFromSimulation(player_body_);
-
-	// create a connection between the rigid body and GameObject
-	player_body_->SetUserData(&player_);
+	
 
 	freeCam.setPosition(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));
-	//freeCam.setLookAt(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));
+	freeCam.setUp(gef::Vector4(0, 1, 0, 0));
+	freeCam.setLookAt(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));
 
 	playerCam.setPosition(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));
-	//playerCam.setLookAt(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));
+	playerCam.setUp(gef::Vector4(0, 1, 0, 0));
+	playerCam.setLookAt(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));
 }
 
 void SceneApp::InitGround()
 {
+	// in here could have this to loop i amount of times with random (within reasonable parameters of course) sizes and positions to make a new randomly generated level everytime
+
 	// ground dimensions
-	gef::Vector4 ground_half_dimensions(5.0f, 0.5f, 0.5f);
+	ground_.halfDimentions = gef::Vector4(5.0f, 0.5f, 0.5f);
 
 	// setup the mesh for the ground
-	ground_mesh_ = primitive_builder_->CreateBoxMesh(ground_half_dimensions);
+	ground_mesh_ = primitive_builder_->CreateBoxMesh(ground_.halfDimentions);
 	ground_.set_mesh(ground_mesh_);
 
 	// create a physics body
@@ -140,7 +125,8 @@ void SceneApp::InitGround()
 
 	// create the shape
 	b2PolygonShape shape;
-	shape.SetAsBox(ground_half_dimensions.x(), ground_half_dimensions.y());
+	
+	shape.SetAsBox(ground_.halfDimentions.x(), ground_.halfDimentions.y());
 
 	// create the fixture
 	b2FixtureDef fixture_def;
@@ -203,7 +189,7 @@ void SceneApp::UpdateSimulation(float frame_time)
 
 	// update object visuals from simulation data
 	player_.UpdateFromSimulation(player_body_);
-	player_.playerUpdate(frame_time);
+	player_.playerUpdate(frame_time);// i added this here just so the player can just have things in an update function rather than putting it all in here although I've kinda had to anyways cos the keyboard is being a pain
 	// don't have to update the ground visuals as it is static
 
 	// collision detection
@@ -323,19 +309,12 @@ void SceneApp::FrontendRender()
 
 void SceneApp::GameInit()
 {
-	// sets up cameras at default positions
-	whatCam = 0;
-	//gef::Vector4 startCameraEye(-5.0f, -10.0f, 0.0f);
-	//gef::Vector4 startCameraLookat(0.0f, 0.0f, 0.0f);
-	//gef::Vector4 startCameraUp(0.0f, 1.0f, 0.0f);
+	// sets up free cam at default position
+	whatCam = 1;
 
-	//freeCam.setPosition(startCameraEye);
-	//freeCam.setLookAt(startCameraLookat);
-	//freeCam.setUp(startCameraUp);
+	freeCam.setPosition(gef::Vector4(-5.0f, -20.0f, 5.0f));
+	freeCam.setLookAt(gef::Vector4(0.0f, 0.0f, 0.0f));
 
-	//playerCam.setPosition(startCameraEye);
-	//playerCam.setLookAt(gef::Vector4(0.0f,0.0f,0.0f));
-	//playerCam.setUp(startCameraUp);
 	// create the renderer for draw 3D geometry
 	renderer_3d_ = gef::Renderer3D::Create(platform_);
 
@@ -455,11 +434,11 @@ void SceneApp::GameUpdate(float frame_time)
 		}
 	}
 
-	playerCam.setPosition(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y - 10.0f, 0.0f));// <-- this does infact work, 
+	playerCam.setPosition(gef::Vector4(player_body_->GetPosition().x + 2.0f, player_body_->GetPosition().y + 2.0f, 10.0f));// <-- this does infact work, 
 	playerCam.setLookAt(gef::Vector4(player_body_->GetPosition().x, player_body_->GetPosition().y, 0.0f));// its just the camera is still only looking up rather than at the box :/
 	
 #pragma endregion
-
+	
 	
 
 
@@ -471,12 +450,14 @@ void SceneApp::GameUpdate(float frame_time)
 		GameRelease();
 		gameState = LOAD;
 		FrontendInit();
-	}*/
-	playerCam.updateLookAt();
-	playerCam.update();
 
-	freeCam.updateLookAt();
+	}*/
+	playerCam.update();
+	playerCam.updateLookAt();
+
 	freeCam.update();
+	freeCam.updateLookAt();
+
 
 
 }
@@ -509,6 +490,11 @@ void SceneApp::GameRender()
 	renderer_3d_->Begin();
 
 	// draw ground
+	// not for future me: having an array of platforms and just looping through them all here:
+	/*
+	for(int i = 0; i < platforms.size(); i++)
+		ender_3d_->DrawMesh(platforms[i]);
+	*/
 	renderer_3d_->DrawMesh(ground_);
 
 	// draw player

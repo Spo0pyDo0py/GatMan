@@ -5,8 +5,9 @@ Camera::Camera() {// constructor
 	up = { 0.0f, 1.0f, 0.0f, 0.0f };
 	forward = { 0.0f, 0.0f , 0.0f, 0.0f };
 	right = { 0.0f, 0.0f , 0.0f, 0.0f };
-	speed = 1000;
-	sensitivity = 300;
+	rotation = { 0.0f,0.0f,0.0f,0.0f };
+	speed = 700;
+	sensitivity = 100;
 }
 
 
@@ -35,7 +36,7 @@ void Camera::updateLookAt() {
 	lookAt = forward + position;
 }
 
-/**getters n' setters*/
+/**getters 'n' setters*/
 gef::Vector4 Camera::getPosition() {
 	return position;
 }

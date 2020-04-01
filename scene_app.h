@@ -71,7 +71,7 @@ private:
 
 	// ground variables
 	gef::Mesh* ground_mesh_;
-	GameObject ground_;
+	Floor ground_;
 	b2Body* ground_body_;
 
 	// audio variables
