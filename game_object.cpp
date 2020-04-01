@@ -79,7 +79,7 @@ void Player::playerInit() {
 
 	// create a connection between the rigid body and GameObject
 	//Player tempPlayer = *this;
-	auto* tempP = this;
+	auto* tempP = this;// <--- this is currently yeeting erros at me and I hate itttttttt :(((
 	player_body_->SetUserData(&tempP);
 }
 
