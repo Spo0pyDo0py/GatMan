@@ -9,6 +9,8 @@
 #include <box2d/Box2D.h>
 #include "game_object.h"
 #include "Camera.h"
+#include <vector>
+#include <random>
 
 
 // FRAMEWORK FORWARD DECLARATIONS
@@ -62,17 +64,15 @@ private:
 	GAMESTATE gameState;
 
 	// create the physics world
-	b2World* world_;
+	b2World* world;
 
 	// player variables
-	Player player_;
-	b2Body* player_body_;
+	Player player;
 
 
 	// ground variables
-	gef::Mesh* ground_mesh_;
-	Floor ground_;
-	b2Body* ground_body_;
+	Floor ground;
+	std::vector<Floor*> platforms;
 
 	// audio variables
 	int sfx_id_;
