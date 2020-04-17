@@ -51,10 +51,10 @@ void SceneApp::CleanUp()
 
 	CleanUpFont();
 
-	//audio_manager_->UnloadAllSamples();
-	//audio_manager_->UnloadMusic();
-//	delete audio_manager_;
-//	audio_manager_ = NULL;
+	audio_manager_->UnloadAllSamples();
+	audio_manager_->UnloadMusic();
+	delete audio_manager_;
+	audio_manager_ = NULL;
 
 	delete input_manager_;
 	input_manager_ = NULL;

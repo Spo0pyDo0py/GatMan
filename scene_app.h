@@ -6,7 +6,7 @@
 #include "primitive_builder.h"
 #include <graphics/mesh_instance.h>
 #include <input/input_manager.h>
-//#include <audio/audio_manager.h>
+#include <audio/audio_manager.h>
 #include <box2d/Box2D.h>
 #include "game_object.h"
 #include "Camera.h"
@@ -53,7 +53,7 @@ private:
 	gef::SpriteRenderer* sprite_renderer_;
 	gef::Font* font_;
 	gef::InputManager* input_manager_;
-	//gef::AudioManager* audio_manager_;
+	gef::AudioManager* audio_manager_;
 
 
 	//
@@ -85,14 +85,14 @@ private:
 	int enemyCount;
 
 	// audio variables
-	/*int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
+	int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
 	int32 soundBoxCollectedVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
 	gef::VolumeInfo soundVolumeInfo;// controlls the sound's volume
 	bool isSoundLoud = 0;// toggle for volume controlled by dpad
 
 	// loading the music doesn't return info
 	bool isMusicPlaying = 0;// toggle for music is playing
-	bool isMusicEarrape = 0;*/
+	bool isMusicEarrape = 0;
 
 	// cameras
 	int whatCam;// variable that keeps track of what cam is being used: 0 = freecam, 1 = playercam
