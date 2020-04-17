@@ -11,6 +11,8 @@
 #include <graphics/sprite.h>
 #include "load_texture.h"
 
+
+
 SceneApp::SceneApp(gef::Platform& platform) :
 	Application(platform),
 	sprite_renderer_(NULL),
@@ -26,6 +28,7 @@ SceneApp::SceneApp(gef::Platform& platform) :
 
 void SceneApp::Init()
 {
+	srand(time(NULL));
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	InitFont();
 
@@ -39,10 +42,28 @@ void SceneApp::Init()
 
 void SceneApp::CleanUp()
 {
+	// destroying the physics world also destroys all the objects within it
+	delete world;
+	world = NULL;
+
+	//delete ground_mesh_;
+	//ground_mesh_ = NULL;
+
+	CleanUpFont();
+
+	//audio_manager_->UnloadAllSamples();
+	//audio_manager_->UnloadMusic();
+//	delete audio_manager_;
+//	audio_manager_ = NULL;
+
 	delete input_manager_;
 	input_manager_ = NULL;
 
-	CleanUpFont();
+	delete primitive_builder_;
+	primitive_builder_ = NULL;
+
+	delete renderer_3d_;
+	renderer_3d_ = NULL;
 
 	delete sprite_renderer_;
 	sprite_renderer_ = NULL;
@@ -95,7 +116,7 @@ void SceneApp::InitPlayer()
 	player.playerInit();
 	
 	
-
+	// sets up the cams n that
 	freeCam.setPosition(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
 	freeCam.setUp(gef::Vector4(0, 1, 0, 0));
 	freeCam.setLookAt(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
@@ -105,19 +126,45 @@ void SceneApp::InitPlayer()
 	playerCam.setLookAt(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
 }
 
+
+
 void SceneApp::InitGround()
 {
 	ground.setPrimitiveBuilder(primitive_builder_);
 	ground.setWorld(world);
 	ground.floorInit(gef::Vector4(5.0f, 0.5f, 0.5f), gef::Vector4(0.0f, 0.0f, 0.0f));
 
-	for (int i = 0; i < 10; i++) {
+	float xIncrement = 8;
+	float yIncrement = 0;
+	// sets up the vector of platforms and gives them randomized values for their xy position and their length (y)
+	for (int i = 0; i < PLATFORM_COUNT; i++) {
 		platforms.push_back(new Floor());
 		platforms[i]->setPrimitiveBuilder(primitive_builder_);
 		platforms[i]->setWorld(world);
-		platforms[i]->floorInit(gef::Vector4(2.0f, 0.5f, 0.5f), gef::Vector4((rand() % 20) + 10, rand() % 10, 0.0f));
+		platforms[i]->floorInit(gef::Vector4(2.0f, 0.5f, 0.5f), gef::Vector4(xIncrement, yIncrement, 0.0f));
+		xIncrement += rand() % 7 + 3;
+		yIncrement += rand() % 3;
+		if (platforms[i]->hasEnemy) {
+			enemiesCast[i] = 1;// might break the code :(
+		}	
 	}
 }
+
+void SceneApp::InitEnemies() {
+	// sets up the vector of enemys and gives them randomized values for their xy position depending on which platform they belong to
+	int j = 0;
+	for (int i = 0; i < PLATFORM_COUNT; i++) {
+		if (enemiesCast[i] == true) {// uses the cast of the pattern in order to see which platforms have enemies. If they do, makes them a thing
+			enemies.push_back(new Enemy());
+			enemies[j]->setPrimitiveBuilder(primitive_builder_);
+			enemies[j]->setWorld(world);
+			enemies[j]->enemyInit(gef::Vector4(platforms[i]->floorBody->GetPosition().x, platforms[i]->floorBody->GetPosition().y, 0));
+			platforms[i]->platformEnemyP = enemies[j];
+			j++;
+		}
+	}
+}
+
 
 
 void SceneApp::InitFont()
@@ -170,6 +217,16 @@ void SceneApp::UpdateSimulation(float frame_time)
 	// update object visuals from simulation data
 	player.UpdateFromSimulation(player.playerBody);
 	player.playerUpdate(frame_time);// i added this here just so the player can just have things in an update function rather than putting it all in here although I've kinda had to anyways cos the keyboard is being a pain
+	
+	for (int i = 0; i < player.bullets.size(); i++) {
+
+		player.bullets[i]->UpdateFromSimulation(player.bullets[i]->bulletBody);
+	}
+
+	for (int i = 0; i < enemies.size(); i++) {
+		enemies[i]->UpdateFromSimulation(enemies[i]->enemyBody);
+	}
+
 	// don't have to update the ground visuals as it is static
 
 	// collision detection
@@ -188,6 +245,8 @@ void SceneApp::UpdateSimulation(float frame_time)
 
 			// DO COLLISION RESPONSE HERE
 			Player* player = NULL;
+			Bullet* bullet = NULL;
+			Enemy* enemy = NULL;
 
 			GameObject* gameObjectA = NULL;
 			GameObject* gameObjectB = NULL;
@@ -200,6 +259,10 @@ void SceneApp::UpdateSimulation(float frame_time)
 				if (gameObjectA->type() == PLAYER)
 				{
 					player = (Player*)bodyA->GetUserData();
+					player->isJumping = 0;
+				}
+				if (gameObjectA->type() == ENEMY) {
+					enemy = (Enemy*)bodyA->GetUserData();
 				}
 			}
 
@@ -208,12 +271,22 @@ void SceneApp::UpdateSimulation(float frame_time)
 				if (gameObjectB->type() == PLAYER)
 				{
 					player = (Player*)bodyB->GetUserData();
+					//player->isJumping = 0;
+				}
+
+				if (gameObjectB->type() == BULLET) {
+					bullet = (Bullet*)bodyB->GetUserData();
+					float bulletDamage = bullet->damage;
+					if (enemy) {
+						enemy->decrementHealth(bulletDamage);
+					}
+
 				}
 			}
 
 			if (player)
 			{
-				player->DecrementHealth();
+				//player->DecrementHealth();
 			}
 		}
 
@@ -307,9 +380,18 @@ void SceneApp::GameInit()
 	// initialise the physics world
 	b2Vec2 gravity(0.0f, -9.81f);
 	world = new b2World(gravity);
+	enemyCount = 0;
+	for (int i = 0; i < PLATFORM_COUNT; i++)// initilizes the enemy randomized pattern cast
+		enemiesCast.push_back(0);
+
+	//audio_manager_ = gef::AudioManager::Create();
+	//soundBoxCollected = audio_manager_->LoadSample("box_collected.wav", platform_);
+	//audio_manager_->LoadMusic("music.wav", platform_);
+
 
 	InitPlayer();
 	InitGround();
+	InitEnemies();
 }
 
 void SceneApp::GameRelease()
@@ -417,12 +499,22 @@ void SceneApp::GameUpdate(float frame_time)
 		FrontendInit();
 
 	}*/
+	// updates cameras
 	playerCam.update();
 	playerCam.updateLookAt();
 
 	freeCam.update();
 	freeCam.updateLookAt();
 
+	// updates enemys
+	for (int i = 0; i < enemies.size(); i++) {
+		enemies[i]->enemyUpdate(frame_time);
+	}
+
+	// updates bullets
+	for (int i = 0; i < player.bullets.size(); i++) {
+		player.bullets[i]->bulletUpdate(frame_time);
+	}
 
 
 }
@@ -456,16 +548,25 @@ void SceneApp::GameRender()
 
 	// draw ground
 	// note for future me: having an array of platforms and just looping through them all here:
-	
+	renderer_3d_->DrawMesh(ground);
 	for (int i = 0; i < platforms.size(); i++) {
 		renderer_3d_->DrawMesh(*platforms[i]);
 	}
+	for (int i = 0; i < enemies.size(); i++) {
+		renderer_3d_->set_override_material(&primitive_builder_->red_material());
+		renderer_3d_->DrawMesh(*enemies[i]);
+	}
 
+	for (int i = 0; i < player.bullets.size(); i++) {
+		renderer_3d_->set_override_material(&primitive_builder_->green_material());
+		//if(player.bullets[i]->bulletBody->IsActive())// this is where its crashing
+		renderer_3d_->DrawMesh(*player.bullets[i]);// crashes here :(
+	}
 	
-	renderer_3d_->DrawMesh(ground);
+
 
 	// draw player
-	renderer_3d_->set_override_material(&primitive_builder_->red_material());
+	renderer_3d_->set_override_material(&primitive_builder_->blue_material());
 	renderer_3d_->DrawMesh(player);
 	renderer_3d_->set_override_material(NULL);
 

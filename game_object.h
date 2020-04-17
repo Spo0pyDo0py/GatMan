@@ -7,6 +7,8 @@
 #include "primitive_builder.h"
 #include <vector>
 #include "box2d/b2_body.h"
+#include <iostream>
+#include <time.h>
 
 enum OBJECT_TYPE
 {
@@ -49,9 +51,8 @@ class Bullet : public GameObject
 {
 public:
 	Bullet();
-	void bulletInit();
+	void bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos);
 	void bulletUpdate(float dt);
-	void shoot(b2Vec2 bulletVelocity, gef::Vector4 bulletPos);
 	void die();// despawns the bullet
 
 	/*getters 'n' setters*/
@@ -59,6 +60,7 @@ public:
 
 
 	gef::Vector4 moveVelocity;// the bullet can miss by going off to the side hence it's a vector 4
+	gef::Vector4 halfSizes;// needed for mesh
 	float damage;// the damage a bullet does on impact to a gameobject
 	b2Body* bulletBody;
 
@@ -72,16 +74,18 @@ public:
 	void DecrementHealth();
 	void playerUpdate(float dt);
 	void playerUpdateControls(float dt, gef::Keyboard* keyboard);
+	void shoot(b2Vec2 bulletVelocity, gef::Vector4 inBulletPos);
 	void die();
 
 	b2Vec2 moveVelocity;
 	b2Vec2 jumpVelocity;
-	int bulletCount;// amount of bullets the player has
+	int bulletIndex;// keeps track of the index of the bullets array its on
 	float health;// health.. pretty self explanitiory, when at 0 the player dies
 	b2Body* playerBody;
+	bool isJumping;
 
-	std::vector<Bullet> bullets;
-	Bullet* currentBullet; // points at the current bullet in the mag
+	std::vector<Bullet*> bullets;
+
 };
 
 
@@ -89,16 +93,20 @@ class Enemy : public GameObject
 {
 public:
 	Enemy();
-	void DecrementHealth();
+	void decrementHealth(float damage);
+	void enemyInit(gef::Vector4 inPosition);
 	void enemyUpdate(float dt);
 	void shoot();// shoots a bullet (might need delta time if the bullets push the player back)
 	void die();
 
 	b2Vec2 moveVelocity;
 	b2Vec2 jumpVelocity;
+	int bulletCount;// amount of bullets the player has
 	float health;// health.. pretty self explanitiory, when at 0 the player dies
+	b2Body* enemyBody;
 
-	std::vector<Bullet> bullets;// the enemy wont have a bullet count as they can shoot infinatly
+	std::vector<Bullet> bullets;
+	//Bullet* currentBullet; // points at the current bullet in the mag
 };
 
 
@@ -114,6 +122,9 @@ public:
 	b2Body* floorBody;
 	gef::Mesh* floorMesh;
 	bool isStatic;
+	bool hasEnemy;
+	Enemy* platformEnemyP;
+
 
 };
 
