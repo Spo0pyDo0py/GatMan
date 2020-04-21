@@ -18,6 +18,13 @@ GameObject::~GameObject() {
 	worldP = NULL;
 	delete worldP;
 
+	platformP = NULL;
+	delete platformP;
+
+	sceneP = NULL;
+	delete sceneP;
+
+
 }
 void GameObject::UpdateFromSimulation(const b2Body* body)// does the collide
 {
@@ -36,6 +43,37 @@ void GameObject::UpdateFromSimulation(const b2Body* body)// does the collide
 		set_transform(object_transform);
 	}
 }
+gef::Scene* GameObject::LoadSceneAssets(gef::Platform& platform, const char* filename)
+{
+	gef::Scene* scene = new gef::Scene();
+
+	if (scene->ReadSceneFromFile(platform, filename))
+	{
+		// if scene file loads successful
+		// create material and mesh resources from the scene data
+		scene->CreateMaterials(platform);
+		scene->CreateMeshes(platform);
+
+	}
+	else
+	{
+		delete scene;
+		scene = NULL;
+	}
+
+	return scene;
+}
+
+gef::Mesh* GameObject::GetMeshFromSceneAssets(gef::Scene* scene){// loads in a mesh from scene 
+	gef::Mesh* mesh = NULL;
+
+	// if the scene data contains at least one mesh
+	// return the first mesh
+	if (scene && scene->meshes.size() > 0)
+		mesh = scene->meshes.front();
+
+	return mesh;
+}
 
 void GameObject::MyCollisionResponse()
 {
@@ -52,6 +90,21 @@ void GameObject::setPrimitiveBuilder(PrimitiveBuilder* inPrimitiveBuilder) {
 }
 void GameObject::setWorld(b2World* inWorld) {
 	worldP = inWorld;
+}
+
+void GameObject::setScene(gef::Scene* inScene) {
+	sceneP = inScene;
+}
+
+void GameObject::setPlatform(gef::Platform* inPlatform) {
+	platformP = inPlatform;
+}
+gef::Platform* GameObject::getPlatform() {
+	return platformP;
+}
+
+gef::Scene* GameObject::getScene() {
+	return sceneP;
 }
 
 gef::InputManager* GameObject::getInputMan() {
@@ -74,24 +127,41 @@ Player::Player()
 	moveVelocity.y = 0;
 
 	jumpVelocity.x = 0;
-	jumpVelocity.y = 300;
+	jumpVelocity.y = 7;
 
 
 }
 
 void Player::playerInit() {
-	set_mesh(primitiveBuilderP->GetDefaultCubeMesh());
+	// loads in the model for the player
+	halfDimentions = b2Vec2(0.2f, 1.3f);
+	//gef::Matrix44 transform;
+	//transform.RotationX(-180);
+	//transform.SetTranslation(gef::Vector4(halfDimentions.x*2, halfDimentions.y*2, 0, 0));
 
+	const char* scene_asset_filename = "gatman.scn";
+	sceneP = LoadSceneAssets(*platformP, scene_asset_filename);
+	if (sceneP)
+	{
+		playerModel.set_mesh(GetMeshFromSceneAssets(sceneP));
+	}
+	else
+	{
+		gef::DebugOut("Scene file %s failed to load\n", scene_asset_filename);
+	}
+	//playerModel.set_transform(transform);
+	set_mesh(playerModel.mesh());
+	
 	// create a physics body for the player
 	b2BodyDef playerBodyDef;
 	playerBodyDef.type = b2_dynamicBody;
-	playerBodyDef.position = b2Vec2(0.0f, 4.0f);
+	playerBodyDef.position = b2Vec2(0.0f, 0.0f);
 
 	playerBody = worldP->CreateBody(&playerBodyDef);
 
 	// create the shape for the player
 	b2PolygonShape playerShape;
-	playerShape.SetAsBox(0.5f, 0.5f);
+	playerShape.SetAsBox(halfDimentions.x, halfDimentions.y);
 
 	// create the fixture
 	b2FixtureDef playerFixtureDef;
@@ -108,7 +178,7 @@ void Player::playerInit() {
 	//Player tempPlayer = *this;
 	//auto* tempP = this;// <--- this is currently yeeting erros at me and I hate itttttttt :(((
 	playerBody->SetUserData(this);
-
+	playerBody->SetFixedRotation(1);// makes it so the player cant rotate
 	/*for (int i = 0; i < 10; i++) {
 		Bullet newBullet;
 		newBullet.setPrimitiveBuilder(getPrimitiveBuilder());
@@ -119,6 +189,7 @@ void Player::playerInit() {
 		bullets.push_back(newBullet);
 	}*/
 	bulletIndex = 0;
+	health = 100;
 	//currentBullet = &bullets[bulletIndex];
 
 	/* this stuff is for model loading for the player :)	
@@ -149,48 +220,61 @@ void Player::playerInit() {
 	
 	
 	*/
+	isDead = 0;
 }
 
-void Player::DecrementHealth()
+void Player::decrementHealth(float inDamage)
 {
-	//gef::DebugOut("Player has taken damage.\n");
+	health -= inDamage;
 }
 
 void Player::playerUpdate(float dt) {
-	if (playerBody->GetPosition().y == -10) {
-		die();
+	if (!isDead) {
+		if (playerBody->GetPosition().y <= -10) {
+			die();
+		}
+
+		if (health <= 0) {
+			die();
+		}
 	}
+
 
 }
 
 void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 	//gef::Keyboard* keyboard = inputManP->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
-	if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_SPACE)) {// makes player jump
-		if (!isJumping) {
-			playerBody->ApplyForceToCenter(jumpVelocity, 1);
-			isJumping = 1;
+	if (!isDead) {
+		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_SPACE)) {// makes player jump
+			if (!isJumping) {
+				isJumping = 1;
+				playerBody->ApplyLinearImpulseToCenter(jumpVelocity, 1);
+
+			}
+		}
+
+		if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_RIGHT)) {// makes player move right
+			playerBody->SetLinearVelocity(b2Vec2(moveVelocity.x * dt, playerBody->GetLinearVelocity().y));
+		}
+
+		if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_LEFT)) {// makes player move left
+			playerBody->SetLinearVelocity(b2Vec2(-moveVelocity.x * dt, playerBody->GetLinearVelocity().y));
+		}
+
+		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
+			//currentBullet->bulletBody->SetActive(0);
+			//currentBullet->shoot(b2Vec2(10*dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 4, playerBody->GetPosition().y + 5, 0));
+
+			// makes sure the current bullet is up to date
+			//bulletIndex++;
+			//currentBullet = &bullets[bulletIndex];
+			//if (bulletIndex == 9)
+			//	bulletIndex = 0;
 		}
 	}
+	
 
-	if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_RIGHT)) {// makes player move right
-		playerBody->SetLinearVelocity(b2Vec2(moveVelocity.x * dt, playerBody->GetLinearVelocity().y));
-	}
-
-	if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_LEFT)) {// makes player move left
-		playerBody->SetLinearVelocity(b2Vec2(-moveVelocity.x * dt, playerBody->GetLinearVelocity().y));
-	}
-
-	if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
-		//currentBullet->bulletBody->SetActive(0);
-		//currentBullet->shoot(b2Vec2(10*dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
-		shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 4, playerBody->GetPosition().y+5, 0));
-
-		// makes sure the current bullet is up to date
-		//bulletIndex++;
-		//currentBullet = &bullets[bulletIndex];
-		//if (bulletIndex == 9)
-		//	bulletIndex = 0;
-	}
 }
 
 void Player::shoot(b2Vec2 inBulletVelocity, gef::Vector4 inBulletPos) {
@@ -205,6 +289,11 @@ void Player::shoot(b2Vec2 inBulletVelocity, gef::Vector4 inBulletPos) {
 
 void Player::die() {
 	// commit die on the player
+	playerBody->SetFixedRotation(0);
+	playerBody->ApplyTorque(10, 1);
+	isDead = 1;
+	
+
 }
 #pragma endregion
 
@@ -228,8 +317,22 @@ void Enemy::decrementHealth(float damage)
 	health -= damage;
 }
 
-void Enemy::enemyInit(gef::Vector4 inPosition) {
-	set_mesh(primitiveBuilderP->GetDefaultCubeMesh());
+void Enemy::enemyInit(gef::Vector4 inPosition, float inHealth) {
+	//gef::Matrix44 transform;
+	//transform.RotationY(180);
+	//enemyModel.set_transform(transform);
+	const char* scene_asset_filename = "enemy.scn";
+	sceneP = LoadSceneAssets(*platformP, scene_asset_filename);
+	if (sceneP)
+	{
+		enemyModel.set_mesh(GetMeshFromSceneAssets(sceneP));
+	}
+	else
+	{
+		gef::DebugOut("Scene file %s failed to load\n", scene_asset_filename);
+	}
+
+	set_mesh(enemyModel.mesh());
 
 	// create a physics body for the player
 	b2BodyDef enemyBodyDef;
@@ -240,7 +343,7 @@ void Enemy::enemyInit(gef::Vector4 inPosition) {
 
 	// create the shape for the player
 	b2PolygonShape enemyShape;
-	enemyShape.SetAsBox(0.5f, 0.5f);
+	enemyShape.SetAsBox(0.2f, 1.3f);
 
 	// create the fixture
 	b2FixtureDef enemyFixtureDef;
@@ -258,6 +361,8 @@ void Enemy::enemyInit(gef::Vector4 inPosition) {
 	//auto* tempP = this;// <--- this is currently yeeting erros at me and I hate itttttttt :(((
 	enemyBody->SetUserData(this);
 
+	enemyBody->SetFixedRotation(1);
+	health = inHealth;
 	/*for (int i = 0; i < 10; i++) {
 		Bullet newBullet;
 		newBullet.setPrimitiveBuilder(getPrimitiveBuilder());
@@ -269,6 +374,8 @@ void Enemy::enemyInit(gef::Vector4 inPosition) {
 	}
 
 	currentBullet = &bullets[0];*/
+	//enemyBody->ApplyTorque(6000.0f, 1); turn on for crazy stuff to happen
+	isDead = 0;
 }
 
 void Enemy::enemyUpdate(float dt) {
@@ -278,10 +385,15 @@ void Enemy::enemyUpdate(float dt) {
 }
 
 void Enemy::shoot() {
+	if (!isDead) {
 
+	}
 }
 
 void Enemy::die() {
+	enemyBody->SetFixedRotation(0);// makes enemy flop over
+	enemyBody->ApplyTorque(10, 1);
+
 
 }
 #pragma endregion
@@ -377,9 +489,9 @@ void Bullet::bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos) {
 
 	// create a connection between the rigid body and GameObject
 	bulletBody->SetUserData(this);
-	bulletBody->SetBullet(1);
+	bulletBody->SetBullet(1);// this isn't to do with it crashing
 	//bulletBody->SetAwake(1);
-	bulletBody->SetLinearVelocity(bulletVelocity);
+	bulletBody->ApplyLinearImpulseToCenter(bulletVelocity, 1);
 }
 
 
@@ -390,7 +502,8 @@ void Bullet::bulletUpdate(float dt) {
 }
 
 void Bullet::die() {// should be called when making contact with an enemy
-	
+	bulletBody == NULL;
+	delete &bulletBody;
 }
 
 

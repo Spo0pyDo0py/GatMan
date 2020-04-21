@@ -6,7 +6,7 @@
 #include "primitive_builder.h"
 #include <graphics/mesh_instance.h>
 #include <input/input_manager.h>
-#include <audio/audio_manager.h>
+
 #include <box2d/Box2D.h>
 #include "game_object.h"
 #include "Camera.h"
@@ -18,8 +18,11 @@
 
 // FRAMEWORK FORWARD DECLARATIONS
 enum GAMESTATE {
+	INTRO,
 	LOAD,
-	GAME
+	PAUSE,
+	GAME,
+	DEAD
 };
 
 
@@ -30,6 +33,7 @@ namespace gef
 	class Font;
 	class InputManager;
 	class Renderer3D;
+	class Scene;
 }
 
 class SceneApp : public gef::Application
@@ -53,7 +57,7 @@ private:
 	gef::SpriteRenderer* sprite_renderer_;
 	gef::Font* font_;
 	gef::InputManager* input_manager_;
-	gef::AudioManager* audio_manager_;
+	//gef::AudioManager* audio_manager_;
 
 
 	//
@@ -66,17 +70,18 @@ private:
 	//
 	gef::Renderer3D* renderer_3d_;
 	PrimitiveBuilder* primitive_builder_;
+	gef::Scene* scene_assets_;
 	GAMESTATE gameState;
 
 	// create the physics world
 	b2World* world;
 
 	// player variables
-	Player player;
+	Player* player;
 
 
 	// ground variables
-	Floor ground;
+	Floor* ground;
 	std::vector<Floor*> platforms;
 
 	// enemy variables
@@ -85,10 +90,10 @@ private:
 	int enemyCount;
 
 	// audio variables
-	int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
-	int32 soundBoxCollectedVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
-	gef::VolumeInfo soundVolumeInfo;// controlls the sound's volume
-	bool isSoundLoud = 0;// toggle for volume controlled by dpad
+//	int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
+//	int32 soundBoxCollectedVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
+//	gef::VolumeInfo soundVolumeInfo;// controlls the sound's volume
+	//bool isSoundLoud = 0;// toggle for volume controlled by dpad
 
 	// loading the music doesn't return info
 	bool isMusicPlaying = 0;// toggle for music is playing
@@ -101,17 +106,32 @@ private:
 
 	float fps_;
 
+	/*void IntroInit();
+	void IntroRelese();
+	void IntroUpdate(float frame_time);
+	void IntroRender();*/
+
 	void FrontendInit();
 	void FrontendRelease();
 	void FrontendUpdate(float frame_time);
 	void FrontendRender();
+
+	/*void PauseInit();
+	void PauseRelease();
+	void PauseUpdate(float frame_time);
+	void PauseRender();*/
 
 	void GameInit();
 	void GameRelease();
 	void GameUpdate(float frame_time);
 	void GameRender();
 
-	void playerUpdate(float frame_time);
+	void DeadInit();
+	void DeadRelese();
+	void DeadUpdate(float frame_time);
+	void DeadRender();
+
+	//void playerUpdate(float frame_time);
 };
 
 #endif // _SCENE_APP_H

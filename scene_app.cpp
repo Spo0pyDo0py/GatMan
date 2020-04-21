@@ -28,7 +28,7 @@ SceneApp::SceneApp(gef::Platform& platform) :
 
 void SceneApp::Init()
 {
-	srand(time(NULL));
+	srand(time(NULL));// makes things random
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	InitFont();
 
@@ -51,10 +51,12 @@ void SceneApp::CleanUp()
 
 	CleanUpFont();
 
-	audio_manager_->UnloadAllSamples();
-	audio_manager_->UnloadMusic();
-	delete audio_manager_;
-	audio_manager_ = NULL;
+	//audio_manager_->UnloadAllSamples();
+	//audio_manager_->UnloadMusic();
+	//delete audio_manager_;
+	//audio_manager_ = NULL;
+	delete scene_assets_;
+	scene_assets_ = NULL;
 
 	delete input_manager_;
 	input_manager_ = NULL;
@@ -81,8 +83,13 @@ bool SceneApp::Update(float frame_time)
 	case LOAD:
 		FrontendUpdate(frame_time);
 		break;
+		
 	case GAME:
 		GameUpdate(frame_time);
+		break;
+
+	case DEAD:
+		DeadUpdate(frame_time);
 		break;
 	}
 
@@ -102,37 +109,46 @@ void SceneApp::Render()
 	case GAME:
 		GameRender();
 	break;
+	case DEAD:
+		DeadRender();
+		break;
 	}
 
 }
 
 void SceneApp::InitPlayer()
 {
+	player = new Player();
 	// setup the mesh for the player
-	player.setInputMan(input_manager_);
-	player.setPrimitiveBuilder(primitive_builder_);
-	player.setWorld(world);
+	player->setInputMan(input_manager_);
+	player->setPrimitiveBuilder(primitive_builder_);
+	player->setWorld(world);
+	// these two needed for model stuff
+	player->setScene(scene_assets_);
+	player->setPlatform(&platform_);
 
-	player.playerInit();
+	player->playerInit();
 	
 	
 	// sets up the cams n that
-	freeCam.setPosition(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
+	freeCam.setPosition(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
 	freeCam.setUp(gef::Vector4(0, 1, 0, 0));
-	freeCam.setLookAt(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
+	freeCam.setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
 
-	playerCam.setPosition(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
+	playerCam.setPosition(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
 	playerCam.setUp(gef::Vector4(0, 1, 0, 0));
-	playerCam.setLookAt(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));
+	playerCam.setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
 }
+
 
 
 
 void SceneApp::InitGround()
 {
-	ground.setPrimitiveBuilder(primitive_builder_);
-	ground.setWorld(world);
-	ground.floorInit(gef::Vector4(5.0f, 0.5f, 0.5f), gef::Vector4(0.0f, 0.0f, 0.0f));
+	ground = new Floor();
+	ground->setPrimitiveBuilder(primitive_builder_);
+	ground->setWorld(world);
+	ground->floorInit(gef::Vector4(5.0f, 0.5f, 0.5f), gef::Vector4(0.0f, 0.0f, 0.0f));
 
 	float xIncrement = 8;
 	float yIncrement = 0;
@@ -158,8 +174,10 @@ void SceneApp::InitEnemies() {
 			enemies.push_back(new Enemy());
 			enemies[j]->setPrimitiveBuilder(primitive_builder_);
 			enemies[j]->setWorld(world);
-			enemies[j]->enemyInit(gef::Vector4(platforms[i]->floorBody->GetPosition().x, platforms[i]->floorBody->GetPosition().y, 0));
-			platforms[i]->platformEnemyP = enemies[j];
+			enemies[j]->setScene(scene_assets_);
+			enemies[j]->setPlatform(&platform_);
+			enemies[j]->enemyInit(gef::Vector4(platforms[i]->floorBody->GetPosition().x, platforms[i]->floorBody->GetPosition().y, 0), rand() % 100 + 50);// declares enemies at randomized platforms location with 
+			platforms[i]->platformEnemyP = enemies[j];// inbetween 50 and 150 health
 			j++;
 		}
 	}
@@ -185,6 +203,18 @@ void SceneApp::DrawHUD()
 	{
 		// display frame rate
 		font_->RenderText(sprite_renderer_, gef::Vector4(850.0f, 510.0f, -0.9f), 1.0f, 0xffffffff, gef::TJ_LEFT, "FPS: %.1f", fps_);
+		// display player's health
+		//if(player)
+		if (gameState == GAME || gameState == DEAD) {
+			if (player->health >= 0) {
+				font_->RenderText(sprite_renderer_, gef::Vector4(720.0f, 460.0f, -0.9f), 1.0f, 0xffffffff, gef::TJ_LEFT, "Player's Health: %.1f", player->health);
+			}
+			else {
+				font_->RenderText(sprite_renderer_, gef::Vector4(885.0f, 460.0f, -0.9f), 1.0f, 0xff0000ff, gef::TJ_LEFT, "ded :(");
+			}
+			
+		}
+		
 	}
 }
 
@@ -199,7 +229,7 @@ void SceneApp::SetupLights()
 	// add a point light that is almost white, but with a blue tinge
 	// the position of the light is set far away so it acts light a directional light
 	gef::PointLight default_point_light;
-	default_point_light.set_colour(gef::Colour(0.7f, 0.7f, 1.0f, 1.0f));
+	default_point_light.set_colour(gef::Colour(0.4f, 0.4f, 0.5f, 1.0f));// was:   0.1f, 0.1f, 0.3f, 1.0f
 	default_point_light.set_position(gef::Vector4(-500.0f, 400.0f, 700.0f));
 	default_shader_data.AddPointLight(default_point_light);
 }
@@ -215,12 +245,12 @@ void SceneApp::UpdateSimulation(float frame_time)
 	world->Step(timeStep, velocityIterations, positionIterations);
 
 	// update object visuals from simulation data
-	player.UpdateFromSimulation(player.playerBody);
-	player.playerUpdate(frame_time);// i added this here just so the player can just have things in an update function rather than putting it all in here although I've kinda had to anyways cos the keyboard is being a pain
+	player->UpdateFromSimulation(player->playerBody);
+	player->playerUpdate(frame_time);// i added this here just so the player can just have things in an update function rather than putting it all in here although I've kinda had to anyways cos the keyboard is being a pain
 	
-	for (int i = 0; i < player.bullets.size(); i++) {
+	for (int i = 0; i < player->bullets.size(); i++) {
 
-		player.bullets[i]->UpdateFromSimulation(player.bullets[i]->bulletBody);
+		player->bullets[i]->UpdateFromSimulation(player->bullets[i]->bulletBody);
 	}
 
 	for (int i = 0; i < enemies.size(); i++) {
@@ -260,6 +290,7 @@ void SceneApp::UpdateSimulation(float frame_time)
 				{
 					player = (Player*)bodyA->GetUserData();
 					player->isJumping = 0;
+
 				}
 				if (gameObjectA->type() == ENEMY) {
 					enemy = (Enemy*)bodyA->GetUserData();
@@ -271,7 +302,7 @@ void SceneApp::UpdateSimulation(float frame_time)
 				if (gameObjectB->type() == PLAYER)
 				{
 					player = (Player*)bodyB->GetUserData();
-					//player->isJumping = 0;
+					//player->isJumping = 0;// flipped places
 				}
 
 				if (gameObjectB->type() == BULLET) {
@@ -279,9 +310,35 @@ void SceneApp::UpdateSimulation(float frame_time)
 					float bulletDamage = bullet->damage;
 					if (enemy) {
 						enemy->decrementHealth(bulletDamage);
+						enemy->enemyBody->ApplyForceToCenter(b2Vec2(10, 5), 1);// knocks back the enemy
+						if(bullet){
+							bullet->die();
+						}
+					}
+					if (player) {
+						player->playerBody->ApplyForceToCenter(b2Vec2(-10, 5), 1);// knocks back the player
+						player->decrementHealth(bulletDamage);
+						if (bullet) {
+							bullet->die();
+						}
+
 					}
 
 				}
+
+				if (gameObjectB->type() == ENEMY) {
+					if (player) {
+						player->decrementHealth(5);
+					}
+
+				}
+
+				/*if (gameObjectB->type() == FLOOR) {
+					if (player) {
+						player->isJumping = 0;
+					}
+				}*/
+				
 			}
 
 			if (player)
@@ -316,11 +373,11 @@ void SceneApp::FrontendUpdate(float frame_time)
 		GameInit();
 	}
 
-	if (controller->buttons_down() & gef_SONY_CTRL_CROSS) {
+	/*if (controller->buttons_down() & gef_SONY_CTRL_CROSS) {
 		FrontendRelease();
 		gameState = GAME;
 		GameInit();
-	}
+	}*/
 
 }
 
@@ -358,6 +415,19 @@ void SceneApp::FrontendRender()
 
 	DrawHUD();
 	sprite_renderer_->End();
+}
+
+void SceneApp::DeadInit() {
+
+}
+void SceneApp::DeadRelese() {
+
+}
+void SceneApp::DeadUpdate(float frame_time) {
+
+}
+void SceneApp::DeadRender() {
+
 }
 
 void SceneApp::GameInit()
@@ -406,12 +476,37 @@ void SceneApp::GameRelease()
 	delete renderer_3d_;
 	renderer_3d_ = NULL;
 
+	delete scene_assets_;
+	scene_assets_ = NULL;
+
+	delete sprite_renderer_;
+	sprite_renderer_ = NULL;
+
+	/*delete player;// might not be needed
+	player = NULL;
+
+	delete ground;
+	ground = NULL;
+
+	for (int i = 0; i < enemies.size(); i++) {
+		delete enemies[i];
+		enemies[i] = NULL;
+	}
+
+	for (int i = 0; i < platforms.size(); i++) {
+		delete platforms[i];
+		platforms[i] = NULL;
+	}*/
+
+
+
+	// more things need to be in here but i dont know what
+
 }
 
 void SceneApp::GameUpdate(float frame_time)
 {
 	const gef::SonyController* controller = input_manager_->controller_input()->GetController(0);
-	
 	
 	UpdateSimulation(frame_time);
 
@@ -435,11 +530,19 @@ void SceneApp::GameUpdate(float frame_time)
 	}
 #pragma endregion
 
+	if (player->isDead) {
+		//GameRelease();
+		//gameState = DEAD;
+		// play death sound and music (pls use minecraft death ones) in dead init
+		//DeadInit();
+	}
+
 
 #pragma region Player Controls
 	if (whatCam != 0) {
 
-		player.playerUpdateControls(frame_time, keyboard);
+		player->playerUpdateControls(frame_time, keyboard);
+		player->playerUpdate(frame_time);
 
 	}
 	
@@ -480,18 +583,19 @@ void SceneApp::GameUpdate(float frame_time)
 			freeCam.rotRight(frame_time);
 		}
 	}
+	
 
-	playerCam.setPosition(gef::Vector4(player.playerBody->GetPosition().x + 2.0f, player.playerBody->GetPosition().y + 2.0f, 10.0f));// <-- this does infact work, 
-	playerCam.setLookAt(gef::Vector4(player.playerBody->GetPosition().x, player.playerBody->GetPosition().y, 0.0f));// its just the camera is still only looking up rather than at the box :/
+	playerCam.setPosition(gef::Vector4(player->playerBody->GetPosition().x + 2.5f, player->playerBody->GetPosition().y + 1.0f, 10.0f));// <-- this does infact work, sets the position of the camea to be a little bit off set for the center of the player so you can see that he has a hat on
+	playerCam.setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));// its just the camera is still only looking up rather than at the box :/
 	
 #pragma endregion
 	
 	
 
 
-	b2Vec2 tempVelo = player.playerBody->GetLinearVelocity();
+	b2Vec2 tempVelo = player->playerBody->GetLinearVelocity();
 	tempVelo.x *= 0.95;// slows the box's velocity in the x axis down over time so its not slipping off the platforms
-	player.playerBody->SetLinearVelocity(tempVelo);
+	player->playerBody->SetLinearVelocity(tempVelo);
 
 	/*if (controller->buttons_down() & gef_SONY_CTRL_CIRCLE) {
 		GameRelease();
@@ -512,11 +616,11 @@ void SceneApp::GameUpdate(float frame_time)
 	}
 
 	// updates bullets
-	for (int i = 0; i < player.bullets.size(); i++) {
-		player.bullets[i]->bulletUpdate(frame_time);
+	for (int i = 0; i < player->bullets.size(); i++) {
+		player->bullets[i]->bulletUpdate(frame_time);
 	}
 
-
+	//audio_manager_->PlayMusic();
 }
 
 void SceneApp::GameRender()
@@ -548,26 +652,26 @@ void SceneApp::GameRender()
 
 	// draw ground
 	// note for future me: having an array of platforms and just looping through them all here:
-	renderer_3d_->DrawMesh(ground);
+	renderer_3d_->DrawMesh(*ground);
 	for (int i = 0; i < platforms.size(); i++) {
 		renderer_3d_->DrawMesh(*platforms[i]);
 	}
+	renderer_3d_->set_override_material(&primitive_builder_->red_material());
 	for (int i = 0; i < enemies.size(); i++) {
-		renderer_3d_->set_override_material(&primitive_builder_->red_material());
+
 		renderer_3d_->DrawMesh(*enemies[i]);
 	}
-
-	for (int i = 0; i < player.bullets.size(); i++) {
-		renderer_3d_->set_override_material(&primitive_builder_->green_material());
+	renderer_3d_->set_override_material(NULL);
+	for (int i = 0; i < player->bullets.size(); i++) {
 		//if(player.bullets[i]->bulletBody->IsActive())// this is where its crashing
-		renderer_3d_->DrawMesh(*player.bullets[i]);// crashes here :(
+		renderer_3d_->DrawMesh(*player->bullets.front());// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) 
 	}
 	
 
 
 	// draw player
 	renderer_3d_->set_override_material(&primitive_builder_->blue_material());
-	renderer_3d_->DrawMesh(player);
+	renderer_3d_->DrawMesh(*player);
 	renderer_3d_->set_override_material(NULL);
 
 	renderer_3d_->End();
