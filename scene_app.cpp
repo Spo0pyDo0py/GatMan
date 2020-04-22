@@ -31,10 +31,11 @@ void SceneApp::Init()
 	srand(time(NULL));// makes things random
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	InitFont();
-
+	for (int i = 0; i < PLATFORM_COUNT; i++)// initilizes the enemy randomized pattern cast
+		enemiesCast.push_back(0);
 	// initialise input manager
 	input_manager_ = gef::InputManager::Create(platform_);
-
+	scene_assets_ = NULL;
 	gameState = LOAD;
 	FrontendInit();
 
@@ -55,8 +56,8 @@ void SceneApp::CleanUp()
 	//audio_manager_->UnloadMusic();
 	//delete audio_manager_;
 	//audio_manager_ = NULL;
-	delete scene_assets_;
-	scene_assets_ = NULL;
+	//delete scene_assets_;
+	//scene_assets_ = NULL;
 
 	delete input_manager_;
 	input_manager_ = NULL;
@@ -131,13 +132,13 @@ void SceneApp::InitPlayer()
 	
 	
 	// sets up the cams n that
-	freeCam.setPosition(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
-	freeCam.setUp(gef::Vector4(0, 1, 0, 0));
-	freeCam.setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
+	freeCam->setPosition(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
+	freeCam->setUp(gef::Vector4(0, 1, 0, 0));
+	freeCam->setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
 
-	playerCam.setPosition(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
-	playerCam.setUp(gef::Vector4(0, 1, 0, 0));
-	playerCam.setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
+	playerCam->setPosition(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
+	playerCam->setUp(gef::Vector4(0, 1, 0, 0));
+	playerCam->setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));
 }
 
 
@@ -248,14 +249,16 @@ void SceneApp::UpdateSimulation(float frame_time)
 	player->UpdateFromSimulation(player->playerBody);
 	player->playerUpdate(frame_time);// i added this here just so the player can just have things in an update function rather than putting it all in here although I've kinda had to anyways cos the keyboard is being a pain
 	
+
 	for (int i = 0; i < player->bullets.size(); i++) {
-
-		player->bullets[i]->UpdateFromSimulation(player->bullets[i]->bulletBody);
+		player->bullets[i]->UpdateFromSimulation(player->bullets[i]->bulletBody);// breaks in here due to them not being initilized
 	}
 
-	for (int i = 0; i < enemies.size(); i++) {
+	
+
+	for (int i = 0; i < enemies.size(); i++) {// enemies.size() is 37?
 		enemies[i]->UpdateFromSimulation(enemies[i]->enemyBody);
-	}
+	}// loops and crashes here after 15 iterations (16th click) b2body.getAngel() was null
 
 	// don't have to update the ground visuals as it is static
 
@@ -352,8 +355,29 @@ void SceneApp::UpdateSimulation(float frame_time)
 	}
 }
 
+void SceneApp::IntroInit() {
+	quotes.push_back("'With lapis and magenta iridescence, the camera with wings takes flight.' - Me 2020");
+	quotes.push_back("'I'm tellin' you man, they're security cameras, if you listen closely you can hear \n the electronics.' - Me (again) 2020");
+	quotes.push_back("'Roses are red, my name is dave.\nI suck at poetry, microwave.' - Dave unknown time");
+	quotes.push_back("'Roll inititive.' - Matt Mercer and every other DM when the party are being vv boring");
+	quotes.push_back("'Lifes a party,\nand I'm the pinãta' - u/spahgetticheerios 2019");
+
+	whatQuote = rand() % 5;
+}
+void SceneApp::IntroRelese() {
+
+}
+void SceneApp::IntroUpdate(float frame_time) {
+
+}
+void SceneApp::IntroRender() {
+
+}
+
+
 void SceneApp::FrontendInit()
 {
+	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	button_icon_ = CreateTextureFromPNG("playstation-cross-dark-icon.png", platform_);
 }
 
@@ -433,10 +457,12 @@ void SceneApp::DeadRender() {
 void SceneApp::GameInit()
 {
 	// sets up free cam at default position
+	freeCam = new Camera();
+	playerCam = new Camera();
 	whatCam = 1;
 
-	freeCam.setPosition(gef::Vector4(-5.0f, -20.0f, 5.0f));
-	freeCam.setLookAt(gef::Vector4(0.0f, 0.0f, 0.0f));
+	freeCam->setPosition(gef::Vector4(-5.0f, -20.0f, 5.0f));
+	freeCam->setLookAt(gef::Vector4(0.0f, 0.0f, 0.0f));
 
 	// create the renderer for draw 3D geometry
 	renderer_3d_ = gef::Renderer3D::Create(platform_);
@@ -451,8 +477,7 @@ void SceneApp::GameInit()
 	b2Vec2 gravity(0.0f, -9.81f);
 	world = new b2World(gravity);
 	enemyCount = 0;
-	for (int i = 0; i < PLATFORM_COUNT; i++)// initilizes the enemy randomized pattern cast
-		enemiesCast.push_back(0);
+
 
 	//audio_manager_ = gef::AudioManager::Create();
 	//soundBoxCollected = audio_manager_->LoadSample("box_collected.wav", platform_);
@@ -482,6 +507,12 @@ void SceneApp::GameRelease()
 	delete sprite_renderer_;
 	sprite_renderer_ = NULL;
 
+	delete freeCam;
+	freeCam = NULL;
+
+	delete playerCam;
+	playerCam = NULL;
+
 	/*delete player;// might not be needed
 	player = NULL;
 
@@ -499,7 +530,22 @@ void SceneApp::GameRelease()
 	}*/
 
 
+	for (int i = 0; i < enemiesCast.size(); i++) {
+		enemiesCast[i] = 0;
+	}
 
+	for (int i = 0; i < enemies.size(); i++) {
+		delete enemies[i];
+		enemies[i] = NULL;
+	}
+	enemies.clear();
+
+	for (int i = 0; i < platforms.size(); i++) {
+		delete platforms[i];
+		platforms[i] = NULL;
+	}
+	platforms.clear();
+	
 	// more things need to be in here but i dont know what
 
 }
@@ -508,13 +554,14 @@ void SceneApp::GameUpdate(float frame_time)
 {
 	const gef::SonyController* controller = input_manager_->controller_input()->GetController(0);
 	
-	UpdateSimulation(frame_time);
+	UpdateSimulation(frame_time);// crashes here 
 
 	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
 	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_X)) {
 		GameRelease();
 		gameState = LOAD;
 		FrontendInit();
+		return;
 	}
 #pragma region Switch Cams
 	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_0)) {// freecam
@@ -554,39 +601,39 @@ void SceneApp::GameUpdate(float frame_time)
 	if (whatCam == 0) {
 		// move controls
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_W)) {// makes freecam move forward
-			freeCam.moveForward(frame_time);
+			freeCam->moveForward(frame_time);
 		}
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_S)) {// makes freecam move right
-			freeCam.moveBack(frame_time);
+			freeCam->moveBack(frame_time);
 		}
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_A)) {// makes freecam move right
-			freeCam.moveLeft(frame_time);
+			freeCam->moveLeft(frame_time);
 		}
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_D)) {// makes freecam move right
-			freeCam.moveRight(frame_time);
+			freeCam->moveRight(frame_time);
 		}
 
 		// rot controls
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_UP)) {// makes freecam rotate up
-			freeCam.rotUp(frame_time);
+			freeCam->rotUp(frame_time);
 		}
 
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_DOWN)) {// makes freecam rotate down
-			freeCam.rotDown(frame_time);
+			freeCam->rotDown(frame_time);
 		}
 
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_LEFT)) {// makes freecam rotate left
-			freeCam.rotLeft(frame_time);
+			freeCam->rotLeft(frame_time);
 		}
 
 		if (input_manager_->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_RIGHT)) {// makes freecam rotate right
-			freeCam.rotRight(frame_time);
+			freeCam->rotRight(frame_time);
 		}
 	}
 	
 
-	playerCam.setPosition(gef::Vector4(player->playerBody->GetPosition().x + 2.5f, player->playerBody->GetPosition().y + 1.0f, 10.0f));// <-- this does infact work, sets the position of the camea to be a little bit off set for the center of the player so you can see that he has a hat on
-	playerCam.setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));// its just the camera is still only looking up rather than at the box :/
+	playerCam->setPosition(gef::Vector4(player->playerBody->GetPosition().x + 2.5f, player->playerBody->GetPosition().y + 1.0f, 10.0f));// <-- this does infact work, sets the position of the camea to be a little bit off set for the center of the player so you can see that he has a hat on
+	playerCam->setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));// its just the camera is still only looking up rather than at the box :/
 	
 #pragma endregion
 	
@@ -604,11 +651,11 @@ void SceneApp::GameUpdate(float frame_time)
 
 	}*/
 	// updates cameras
-	playerCam.update();
-	playerCam.updateLookAt();
+	playerCam->update();
+	playerCam->updateLookAt();
 
-	freeCam.update();
-	freeCam.updateLookAt();
+	freeCam->update();
+	freeCam->updateLookAt();
 
 	// updates enemys
 	for (int i = 0; i < enemies.size(); i++) {
@@ -637,11 +684,11 @@ void SceneApp::GameRender()
 	// changes the view depending on what cam is being currently used
 	gef::Matrix44 view_matrix;
 	switch (whatCam) {
-	case 0: {	view_matrix.LookAt(freeCam.getPosition(), freeCam.getLookAt(), freeCam.getUp());
+	case 0: {	view_matrix.LookAt(freeCam->getPosition(), freeCam->getLookAt(), freeCam->getUp());
 		renderer_3d_->set_view_matrix(view_matrix); };
 		break;
 
-	case 1: {	view_matrix.LookAt(playerCam.getPosition(), playerCam.getLookAt(), playerCam.getUp());
+	case 1: {	view_matrix.LookAt(playerCam->getPosition(), playerCam->getLookAt(), playerCam->getUp());
 		renderer_3d_->set_view_matrix(view_matrix); };
 		break;
 
@@ -681,7 +728,6 @@ void SceneApp::GameRender()
 	DrawHUD();
 	sprite_renderer_->End();
 }
-// controls the cameras rotation with the mouse
 
 
 

@@ -264,7 +264,7 @@ void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
 			//currentBullet->bulletBody->SetActive(0);
 			//currentBullet->shoot(b2Vec2(10*dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
-			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 4, playerBody->GetPosition().y + 5, 0));
+			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x +1, playerBody->GetPosition().y + 1, 0));
 
 			// makes sure the current bullet is up to date
 			//bulletIndex++;
@@ -278,13 +278,13 @@ void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 }
 
 void Player::shoot(b2Vec2 inBulletVelocity, gef::Vector4 inBulletPos) {
-	Bullet newBullet;
-	newBullet.setPrimitiveBuilder(getPrimitiveBuilder());
-	newBullet.setWorld(getWorld());
-	newBullet.bulletInit(inBulletVelocity, inBulletPos);
-	newBullet.bulletBody->SetActive(1);
+	Bullet* newBullet = new Bullet();
+	newBullet->setPrimitiveBuilder(getPrimitiveBuilder());
+	newBullet->setWorld(getWorld());
+	newBullet->bulletInit(inBulletVelocity, inBulletPos);
+	newBullet->bulletBody->SetActive(1);
 
-	bullets.push_back(&newBullet);
+	bullets.push_back(newBullet);// only in this scope does this bullet exist
 }
 
 void Player::die() {
@@ -457,9 +457,9 @@ void Floor::floorInit(gef::Vector4 inHalfDimentions, gef::Vector4 inPosition) {
 Bullet::Bullet()
 {
 	set_type(BULLET);
-	moveVelocity = gef::Vector4(1, 0, 0, 0);
+	moveVelocity = gef::Vector4(500, 0, 0, 0);
 	damage = 69;
-	halfSizes = gef::Vector4(0.1f, 0.2f, 0.1f);
+	halfSizes = gef::Vector4(0.2f, 0.1f, 0.1f);
 }
 
 void Bullet::bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos) {

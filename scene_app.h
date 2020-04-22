@@ -59,6 +59,12 @@ private:
 	gef::InputManager* input_manager_;
 	//gef::AudioManager* audio_manager_;
 
+	//
+	// INTRO DECLARATIONS
+	//
+	std::vector<std::string> quotes;
+	int whatQuote;
+	gef::Texture* background;// for some reason textures must be pointers
 
 	//
 	// FRONTEND DECLARATIONS
@@ -101,15 +107,15 @@ private:
 
 	// cameras
 	int whatCam;// variable that keeps track of what cam is being used: 0 = freecam, 1 = playercam
-	Camera freeCam;
-	Camera playerCam;
+	Camera* freeCam;
+	Camera* playerCam;
 
 	float fps_;
 
-	/*void IntroInit();
+	void IntroInit();
 	void IntroRelese();
 	void IntroUpdate(float frame_time);
-	void IntroRender();*/
+	void IntroRender();
 
 	void FrontendInit();
 	void FrontendRelease();
