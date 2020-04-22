@@ -664,7 +664,7 @@ void SceneApp::GameRender()
 	renderer_3d_->set_override_material(NULL);
 	for (int i = 0; i < player->bullets.size(); i++) {
 		//if(player.bullets[i]->bulletBody->IsActive())// this is where its crashing
-		renderer_3d_->DrawMesh(*player->bullets.front());// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) 
+		renderer_3d_->DrawMesh(*player->bullets.front());// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) REEEEEEEE
 	}
 	
 
