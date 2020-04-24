@@ -38,6 +38,13 @@ void SceneApp::Init()
 	scene_assets_ = NULL;
 	gameState = LOAD;
 	FrontendInit();
+	difficulty = 1;
+	easyBeat = 0;
+	easyAced = 0;
+	regularBeat = 0;
+	regularAced = 0;
+	hardBeat = 0;
+	hardAced = 0;
 
 }
 
@@ -90,7 +97,17 @@ bool SceneApp::Update(float frame_time)
 		break;
 
 	case DEAD:
+		GameUpdate(frame_time);
 		DeadUpdate(frame_time);
+		break;
+
+	case WIN:
+		GameUpdate(frame_time);
+		WinUpdate(frame_time);
+		break;
+
+	case PAUSE:
+		PauseUpdate(frame_time);
 		break;
 	}
 
@@ -106,14 +123,27 @@ void SceneApp::Render()
 	switch (gameState) {
 	case LOAD:
 		FrontendRender();
-	break;
+		break;
 	case GAME:
 		GameRender();
-	break;
+		break;
 	case DEAD:
+		GameRender();
 		DeadRender();
 		break;
+
+	case WIN:
+		GameRender();
+		WinRender();
+		break;
+
+	case PAUSE:
+		GameRender();
+		PauseRender();
+		break;
 	}
+
+
 
 }
 
@@ -165,6 +195,9 @@ void SceneApp::InitGround()
 			enemiesCast[i] = 1;// might break the code :(
 		}	
 	}
+
+
+
 }
 
 void SceneApp::InitEnemies() {
@@ -182,6 +215,16 @@ void SceneApp::InitEnemies() {
 			j++;
 		}
 	}
+}
+
+void SceneApp::InitGoal() {
+	// initilises the goal
+
+	goal = new Goal();
+	goal->setPrimitiveBuilder(primitive_builder_);
+	goal->setWorld(world);
+	goal->goalInit(b2Vec2(platforms.back()->floorBody->GetPosition().x + 2, platforms.back()->floorBody->GetPosition().y + 2));// sets 
+
 }
 
 
@@ -251,7 +294,11 @@ void SceneApp::UpdateSimulation(float frame_time)
 	
 
 	for (int i = 0; i < player->bullets.size(); i++) {
-		player->bullets[i]->UpdateFromSimulation(player->bullets[i]->bulletBody);// breaks in here due to them not being initilized
+		if (player->bullets[i] == NULL) {
+
+		}
+		else
+			player->bullets[i]->UpdateFromSimulation(player->bullets[i]->bulletBody);// breaks in here due to them not being initilized
 	}
 
 	
@@ -277,9 +324,11 @@ void SceneApp::UpdateSimulation(float frame_time)
 			b2Body* bodyB = contact->GetFixtureB()->GetBody();
 
 			// DO COLLISION RESPONSE HERE
-			Player* player = NULL;
-			Bullet* bullet = NULL;
-			Enemy* enemy = NULL;
+			Player* playerP = NULL;
+			Bullet* bulletP = NULL;
+			Enemy* enemyP = NULL;
+			Floor* platformP = NULL;
+			Goal* goalP = NULL;
 
 			GameObject* gameObjectA = NULL;
 			GameObject* gameObjectB = NULL;
@@ -291,60 +340,83 @@ void SceneApp::UpdateSimulation(float frame_time)
 			{
 				if (gameObjectA->type() == PLAYER)
 				{
-					player = (Player*)bodyA->GetUserData();
-					player->isJumping = 0;
+					playerP = (Player*)bodyA->GetUserData();
+					playerP->isJumping = 0;
 
 				}
 				if (gameObjectA->type() == ENEMY) {
-					enemy = (Enemy*)bodyA->GetUserData();
+					enemyP = (Enemy*)bodyA->GetUserData();
 				}
-			}
+				if (gameObjectA->type() == FLOOR) {
+					platformP = (Floor*)bodyA->GetUserData();
+				}
 
-			if (gameObjectB)
-			{
-				if (gameObjectB->type() == PLAYER)
+				if (gameObjectA->type() == BULLET) {
+					bulletP = (Bullet*)bodyA->GetUserData();
+				}
+
+				if (gameObjectB)
 				{
-					player = (Player*)bodyB->GetUserData();
-					//player->isJumping = 0;// flipped places
-				}
-
-				if (gameObjectB->type() == BULLET) {
-					bullet = (Bullet*)bodyB->GetUserData();
-					float bulletDamage = bullet->damage;
-					if (enemy) {
-						enemy->decrementHealth(bulletDamage);
-						enemy->enemyBody->ApplyForceToCenter(b2Vec2(10, 5), 1);// knocks back the enemy
-						if(bullet){
-							bullet->die();
+					if (gameObjectB->type() == PLAYER)
+					{
+						playerP = (Player*)bodyB->GetUserData();
+						//player->isJumping = 0;// flipped places
+						if (goalP) {
+							WinInit();
+							gameState = WIN;
 						}
 					}
-					if (player) {
-						player->playerBody->ApplyForceToCenter(b2Vec2(-10, 5), 1);// knocks back the player
-						player->decrementHealth(bulletDamage);
-						if (bullet) {
-							bullet->die();
+
+					if (gameObjectB->type() == BULLET) {
+						bulletP = (Bullet*)bodyB->GetUserData();
+						float bulletDamage = bulletP->damage;
+						if (enemyP) {
+							enemyP->decrementHealth(bulletDamage);
+							enemyP->enemyBody->ApplyForceToCenter(b2Vec2(30, 15), 1);// knocks back the enemy
+							if (bulletP) {
+								bulletP->isAlive = 0;
+							}
+						}
+						else if (playerP) {
+							playerP->playerBody->ApplyForceToCenter(b2Vec2(-30, 15), 1);// knocks back the player
+							playerP->decrementHealth(bulletDamage);
+							if (bulletP) {
+								bulletP->isAlive = 0;
+							}
+
+						}
+						
+
+					}
+
+					if (gameObjectB->type() == ENEMY) {
+						enemyP = (Enemy*)bodyB->GetUserData();
+						if (enemyP) {
+							if (enemyP->isDead) {
+
+							}
+							else if (playerP) {
+								playerP->decrementHealth(5);
+							}
 						}
 
+
+					}
+
+					if (gameObjectB->type() == FLOOR) {
+						platformP = (Floor*)bodyB->GetUserData();
+						if (bulletP) {
+							bulletP->isAlive = 0;
+						}
+						if (playerP) {
+							playerP->onPlatform = 1;
+						}
 					}
 
 				}
-
-				if (gameObjectB->type() == ENEMY) {
-					if (player) {
-						player->decrementHealth(5);
-					}
-
-				}
-
-				/*if (gameObjectB->type() == FLOOR) {
-					if (player) {
-						player->isJumping = 0;
-					}
-				}*/
-				
 			}
 
-			if (player)
+			if (playerP)
 			{
 				//player->DecrementHealth();
 			}
@@ -352,7 +424,7 @@ void SceneApp::UpdateSimulation(float frame_time)
 
 		// Get next contact point
 		contact = contact->GetNext();
-	}
+	}// defo make it here after bullet collision
 }
 
 void SceneApp::IntroInit() {
@@ -379,12 +451,18 @@ void SceneApp::FrontendInit()
 {
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	button_icon_ = CreateTextureFromPNG("playstation-cross-dark-icon.png", platform_);
+	controls = CreateTextureFromPNG("controls.png", platform_);
+	gatman = CreateTextureFromPNG("gatman.png", platform_);
+	difficulty = 0;
 }
 
 void SceneApp::FrontendRelease()
 {
 	delete button_icon_;
 	button_icon_ = NULL;
+
+	delete controls;
+	controls = NULL;
 }
 
 void SceneApp::FrontendUpdate(float frame_time)
@@ -397,6 +475,15 @@ void SceneApp::FrontendUpdate(float frame_time)
 		GameInit();
 	}
 
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_1)) {
+		difficulty = 1;
+	}
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_2)) {
+		difficulty = 2;
+	}
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_3)) {
+		difficulty = 3;
+	}
 	/*if (controller->buttons_down() & gef_SONY_CTRL_CROSS) {
 		FrontendRelease();
 		gameState = GAME;
@@ -408,6 +495,39 @@ void SceneApp::FrontendUpdate(float frame_time)
 void SceneApp::FrontendRender()
 {
 	sprite_renderer_->Begin();
+	
+	// Render controls
+	gef::Sprite controlsGraphic;
+	controlsGraphic.set_texture(controls);
+	controlsGraphic.set_position(gef::Vector4(platform_.width()*0.85f, platform_.height()*0.5f, -0.99f));
+	controlsGraphic.set_height(304.0f);
+	controlsGraphic.set_width(272.0f);// 608 544
+	sprite_renderer_->DrawSprite(controlsGraphic);
+
+	// Render controls
+	gef::Sprite gatmanGraphic;
+	gatmanGraphic.set_texture(gatman);
+	gatmanGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
+	gatmanGraphic.set_height(120.0f);
+	gatmanGraphic.set_width(957.0f);// 608 544
+	sprite_renderer_->DrawSprite(gatmanGraphic);
+
+	font_->RenderText(
+		sprite_renderer_,
+		gef::Vector4(platform_.width()*0.05f, platform_.height()*0.89f, -0.99f),
+		1.0f,
+		0xffffffff,
+		gef::TJ_LEFT,
+		"Press 1, 2 or 3 to change the difficulty to: 1 = Easy --- 2 = Regular --- 3 = Hard");
+
+	font_->RenderText(
+		sprite_renderer_,
+		gef::Vector4(platform_.width()*0.05f, platform_.height()*0.94f, -0.99f),
+		1.0f,
+		0xffffffff,
+		gef::TJ_LEFT,
+		"Difficulty: ", int(difficulty));// wont display difficulty
+
 
 	// render "PRESS" text
 	font_->RenderText(
@@ -442,17 +562,102 @@ void SceneApp::FrontendRender()
 }
 
 void SceneApp::DeadInit() {
-
+	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
+	youDied = CreateTextureFromPNG("u ded.png", platform_);
 }
-void SceneApp::DeadRelese() {
-
+void SceneApp::DeadRelease() {
+	delete sprite_renderer_;
+	sprite_renderer_ = NULL;
 }
 void SceneApp::DeadUpdate(float frame_time) {
-
+	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+	//gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_R)) {
+		GameRelease();
+		DeadRelease();
+		gameState = LOAD;
+		FrontendInit();
+		return;
+	}
 }
 void SceneApp::DeadRender() {
-
+	gef::Sprite ded;
+	ded.set_texture(youDied);
+	ded.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+	ded.set_height(205.0f);// dimentions of pic = 637 * 205
+	ded.set_width(637.0f);
+	sprite_renderer_->DrawSprite(ded);
 }
+
+void SceneApp::WinInit() {
+	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
+	youWin = CreateTextureFromPNG("u win.png", platform_);
+}
+void SceneApp::WinRelease() {
+	delete sprite_renderer_;
+	sprite_renderer_ = NULL;
+}
+void SceneApp::WinUpdate(float frame_time) {
+	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+//gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {
+		GameRelease();
+		WinRelease();
+		gameState = LOAD;
+		FrontendInit();
+		return;
+	}
+}
+void SceneApp::WinRender() {
+	gef::Sprite win;
+	if (player->health == 100) {
+
+	}
+	else {
+
+	}
+	win.set_texture(youWin);
+	win.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+	win.set_height(205.0f);// dimentions of pic = 637 * 205
+	win.set_width(637.0f);
+	sprite_renderer_->DrawSprite(win);
+}
+
+void SceneApp::PauseInit() {
+	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
+	youPaused = CreateTextureFromPNG("u paused.png", platform_);
+}
+void SceneApp::PauseRelease() {
+	delete sprite_renderer_;
+	sprite_renderer_ = NULL;
+}
+void SceneApp::PauseUpdate(float frame_time) {
+	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_F)) {
+		GameRelease();
+		PauseRelease();
+		gameState = LOAD;
+
+		FrontendInit();
+		return;
+	}
+
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_P)) {
+		//PauseRelease();
+		gameState = GAME;
+		//FrontendInit();
+		return;
+	}
+}
+void SceneApp::PauseRender() {
+	gef::Sprite pause;
+	pause.set_texture(youPaused);
+	pause.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+	pause.set_height(205.0f);// dimentions of pic = 637 * 205
+	pause.set_width(637.0f);
+	sprite_renderer_->DrawSprite(pause);
+}
+
 
 void SceneApp::GameInit()
 {
@@ -471,6 +676,7 @@ void SceneApp::GameInit()
 	primitive_builder_ = new PrimitiveBuilder(platform_);
 
 
+
 	SetupLights();
 
 	// initialise the physics world
@@ -478,7 +684,7 @@ void SceneApp::GameInit()
 	world = new b2World(gravity);
 	enemyCount = 0;
 
-
+	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	//audio_manager_ = gef::AudioManager::Create();
 	//soundBoxCollected = audio_manager_->LoadSample("box_collected.wav", platform_);
 	//audio_manager_->LoadMusic("music.wav", platform_);
@@ -487,6 +693,7 @@ void SceneApp::GameInit()
 	InitPlayer();
 	InitGround();
 	InitEnemies();
+	InitGoal();
 }
 
 void SceneApp::GameRelease()
@@ -557,12 +764,21 @@ void SceneApp::GameUpdate(float frame_time)
 	UpdateSimulation(frame_time);// crashes here 
 
 	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
-	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_X)) {
+/*	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_X)) {
 		GameRelease();
 		gameState = LOAD;
 		FrontendInit();
 		return;
+	}*/
+
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_P)) {
+		//GameRelease();
+		PauseInit();
+		gameState = PAUSE;
+
+		return;
 	}
+
 #pragma region Switch Cams
 	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_0)) {// freecam
 		whatCam = 0;
@@ -578,10 +794,9 @@ void SceneApp::GameUpdate(float frame_time)
 #pragma endregion
 
 	if (player->isDead) {
-		//GameRelease();
-		//gameState = DEAD;
+		gameState = DEAD;
 		// play death sound and music (pls use minecraft death ones) in dead init
-		//DeadInit();
+		DeadInit();
 	}
 
 
@@ -594,6 +809,10 @@ void SceneApp::GameUpdate(float frame_time)
 	}
 	
 #pragma endregion
+
+
+
+
 
 	
 
@@ -657,6 +876,9 @@ void SceneApp::GameUpdate(float frame_time)
 	freeCam->update();
 	freeCam->updateLookAt();
 
+	// updates goal
+	goal->goalUpdate(frame_time);
+
 	// updates enemys
 	for (int i = 0; i < enemies.size(); i++) {
 		enemies[i]->enemyUpdate(frame_time);
@@ -664,7 +886,11 @@ void SceneApp::GameUpdate(float frame_time)
 
 	// updates bullets
 	for (int i = 0; i < player->bullets.size(); i++) {
-		player->bullets[i]->bulletUpdate(frame_time);
+		if (player->bullets[i] == NULL) {
+
+		}
+		else
+			player->bullets[i]->bulletUpdate(frame_time);
 	}
 
 	//audio_manager_->PlayMusic();
@@ -710,8 +936,13 @@ void SceneApp::GameRender()
 	}
 	renderer_3d_->set_override_material(NULL);
 	for (int i = 0; i < player->bullets.size(); i++) {
-		//if(player.bullets[i]->bulletBody->IsActive())// this is where its crashing
-		renderer_3d_->DrawMesh(*player->bullets.front());// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) REEEEEEEE
+		if (player->bullets[i] == NULL) {
+			
+		}// this is where its crashing
+		else {
+			renderer_3d_->DrawMesh(*player->bullets[i]);// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) REEEEEEEE
+		}
+		
 	}
 	
 
@@ -721,10 +952,15 @@ void SceneApp::GameRender()
 	renderer_3d_->DrawMesh(*player);
 	renderer_3d_->set_override_material(NULL);
 
+	// draw goal
+	renderer_3d_->set_override_material(&primitive_builder_->green_material());
+	renderer_3d_->DrawMesh(*goal);
+	//renderer_3d_->set_override_material(NULL);
+
 	renderer_3d_->End();
 
 	// start drawing sprites, but don't clear the frame buffer
-	sprite_renderer_->Begin(false);
+	sprite_renderer_->Begin(false);// this is null for some reason when trying to unpause the game
 	DrawHUD();
 	sprite_renderer_->End();
 }

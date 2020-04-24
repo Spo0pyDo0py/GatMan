@@ -22,7 +22,8 @@ enum GAMESTATE {
 	LOAD,
 	PAUSE,
 	GAME,
-	DEAD
+	DEAD,
+	WIN
 };
 
 
@@ -49,6 +50,7 @@ private:
 	void InitGround();
 	void InitEnemies();
 	void InitFont();
+	void InitGoal();
 	void CleanUpFont();
 	void DrawHUD();
 	void SetupLights();
@@ -57,6 +59,13 @@ private:
 	gef::SpriteRenderer* sprite_renderer_;
 	gef::Font* font_;
 	gef::InputManager* input_manager_;
+	int difficulty;
+	bool easyBeat;
+	bool easyAced;
+	bool regularBeat;
+	bool regularAced;
+	bool hardBeat;
+	bool hardAced;
 	//gef::AudioManager* audio_manager_;
 
 	//
@@ -70,7 +79,8 @@ private:
 	// FRONTEND DECLARATIONS
 	//
 	gef::Texture* button_icon_;
-
+	gef::Texture* controls;
+	gef::Texture* gatman;
 	//
 	// GAME DECLARATIONS
 	//
@@ -78,6 +88,21 @@ private:
 	PrimitiveBuilder* primitive_builder_;
 	gef::Scene* scene_assets_;
 	GAMESTATE gameState;
+
+	//
+	// DEAD DECLARATIONS
+	//
+	gef::Texture* youDied;
+
+	//
+	// WIN DECLARATIONS
+	//
+	gef::Texture* youWin;
+
+	//
+	// PAUSE DECLARATIONS
+	//
+	gef::Texture* youPaused;
 
 	// create the physics world
 	b2World* world;
@@ -105,6 +130,9 @@ private:
 	bool isMusicPlaying = 0;// toggle for music is playing
 	bool isMusicEarrape = 0;
 
+	Goal* goal;
+
+
 	// cameras
 	int whatCam;// variable that keeps track of what cam is being used: 0 = freecam, 1 = playercam
 	Camera* freeCam;
@@ -122,10 +150,10 @@ private:
 	void FrontendUpdate(float frame_time);
 	void FrontendRender();
 
-	/*void PauseInit();
+	void PauseInit();
 	void PauseRelease();
 	void PauseUpdate(float frame_time);
-	void PauseRender();*/
+	void PauseRender();
 
 	void GameInit();
 	void GameRelease();
@@ -133,9 +161,14 @@ private:
 	void GameRender();
 
 	void DeadInit();
-	void DeadRelese();
+	void DeadRelease();
 	void DeadUpdate(float frame_time);
 	void DeadRender();
+
+	void WinInit();
+	void WinRelease();
+	void WinUpdate(float frame_time);
+	void WinRender();
 
 	//void playerUpdate(float frame_time);
 };

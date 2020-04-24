@@ -17,7 +17,8 @@ enum OBJECT_TYPE
 	PLAYER,
 	ENEMY,
 	BULLET,
-	FLOOR
+	FLOOR,
+	GOAL
 };
 
 class GameObject : public gef::MeshInstance
@@ -57,6 +58,28 @@ private:
 
 };
 
+class Goal : public GameObject
+{
+public:
+	Goal();
+	void goalInit(b2Vec2 inPosition);
+	void goalUpdate(float dt);
+	gef::MeshInstance goalModel;
+	b2Vec2 halfDimentions;
+	//void die();// despawns the bullet
+
+	/*getters 'n' setters*/
+
+
+
+	//gef::Vector4 moveVelocity;// the bullet can miss by going off to the side hence it's a vector 4
+	gef::Vector4 halfSizes;// needed for mesh
+	//float damage;// the damage a bullet does on impact to a gameobject
+	b2Body* goalBody;
+	bool isAlive;
+
+};
+
 class Bullet : public GameObject
 {
 public:
@@ -74,6 +97,7 @@ public:
 	gef::Vector4 halfSizes;// needed for mesh
 	float damage;// the damage a bullet does on impact to a gameobject
 	b2Body* bulletBody;
+	bool isAlive;
 
 };
 
@@ -93,12 +117,13 @@ public:
 	b2Vec2 halfDimentions;
 	b2Vec2 jumpVelocity;
 
-	int bulletIndex;// keeps track of the index of the bullets array its on
-	float health;// health.. pretty self explanitiory, when at 0 the player dies
+	//int bulletIndex;// keeps track of the index of the bullets array its on
+	float health;// health, keeps track of how much damage the player has taker
 	b2Body* playerBody;
 	gef::MeshInstance playerModel;
 	bool isJumping;
 	bool isDead;
+	bool onPlatform;
 
 	std::vector<Bullet*> bullets;
 

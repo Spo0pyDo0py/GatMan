@@ -119,25 +119,73 @@ b2World* GameObject::getWorld() {
 	return worldP;
 }
 
+Goal::Goal() {
+
+}
+void Goal::goalInit(b2Vec2 inPosition) {
+	// loads in the model for the goal
+	halfDimentions = b2Vec2(0.1f, 0.2f);
+
+	const char* scene_asset_filename = "world.scn";
+	sceneP = LoadSceneAssets(*platformP, scene_asset_filename);
+	if (sceneP)
+	{
+		goalModel.set_mesh(GetMeshFromSceneAssets(sceneP));
+	}
+	else
+	{
+		gef::DebugOut("Scene file %s failed to load\n", scene_asset_filename);
+	}
+	//playerModel.set_transform(transform);
+	set_mesh(goalModel.mesh());
+
+	// create a physics body for the player
+	b2BodyDef goalBodyDef;
+	goalBodyDef.type = b2_staticBody;
+	goalBodyDef.position = inPosition;
+
+	goalBody = worldP->CreateBody(&goalBodyDef);
+
+	// create the shape for the player
+	b2PolygonShape goalShape;
+	goalShape.SetAsBox(halfDimentions.x, halfDimentions.y);
+
+	// create the fixture
+	b2FixtureDef goalFixtureDef;
+	goalFixtureDef.shape = &goalShape;
+	goalFixtureDef.density = 1.0f;
+
+	// create the fixture on the rigid body
+	goalBody->CreateFixture(&goalFixtureDef);
+
+	// update visuals from simulation data
+	UpdateFromSimulation(goalBody);
+
+
+	goalBody->SetUserData(this);
+	//goalBody->SetFixedRotation(1);// makes it so the player cant rotate
+}
+void Goal::goalUpdate(float dt) {
+
+}
+
 #pragma region Player Stuff
 Player::Player()
 {
 	set_type(PLAYER);
-	moveVelocity.x = 300;
+	moveVelocity.x = 29;
 	moveVelocity.y = 0;
 
 	jumpVelocity.x = 0;
-	jumpVelocity.y = 7;
+	jumpVelocity.y = 200;
 
 
 }
 
 void Player::playerInit() {
 	// loads in the model for the player
+	onPlatform = 1;
 	halfDimentions = b2Vec2(0.2f, 1.3f);
-	//gef::Matrix44 transform;
-	//transform.RotationX(-180);
-	//transform.SetTranslation(gef::Vector4(halfDimentions.x*2, halfDimentions.y*2, 0, 0));
 
 	const char* scene_asset_filename = "gatman.scn";
 	sceneP = LoadSceneAssets(*platformP, scene_asset_filename);
@@ -174,23 +222,11 @@ void Player::playerInit() {
 	// update visuals from simulation data
 	UpdateFromSimulation(playerBody);
 
-	// create a connection between the rigid body and GameObject
-	//Player tempPlayer = *this;
-	//auto* tempP = this;// <--- this is currently yeeting erros at me and I hate itttttttt :(((
+
 	playerBody->SetUserData(this);
 	playerBody->SetFixedRotation(1);// makes it so the player cant rotate
-	/*for (int i = 0; i < 10; i++) {
-		Bullet newBullet;
-		newBullet.setPrimitiveBuilder(getPrimitiveBuilder());
-		newBullet.setWorld(getWorld());
-		newBullet.bulletInit();
-		newBullet.bulletBody->SetActive(1);
 
-		bullets.push_back(newBullet);
-	}*/
-	bulletIndex = 0;
 	health = 100;
-	//currentBullet = &bullets[bulletIndex];
 
 	/* this stuff is for model loading for the player :)	
 	
@@ -239,58 +275,91 @@ void Player::playerUpdate(float dt) {
 		}
 	}
 
+	// deleton for bullets
+	for (int i = 0; i < bullets.size(); i++) {
+		if (bullets[i] == NULL) {
+
+		}
+		else {
+			if (!bullets[i]->isAlive) {// bullet is null
+				delete bullets[i];
+				bullets[i] = NULL;
+			}
+		}
+	}
+
+
 
 }
 
 void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 	//gef::Keyboard* keyboard = inputManP->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
-	if (!isDead) {
-		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_SPACE)) {// makes player jump
-			if (!isJumping) {
-				isJumping = 1;
-				playerBody->ApplyLinearImpulseToCenter(jumpVelocity, 1);
+	if (!isDead){
 
+			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_SPACE)) {// makes player jump
+				if (!isJumping) {
+					playerBody->ApplyForceToCenter(b2Vec2(jumpVelocity.x, jumpVelocity.y), 1);
+				}
+			isJumping = 1;
 			}
-		}
-
+		
 		if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_RIGHT)) {// makes player move right
-			playerBody->SetLinearVelocity(b2Vec2(moveVelocity.x * dt, playerBody->GetLinearVelocity().y));
+			playerBody->ApplyLinearImpulseToCenter(b2Vec2(moveVelocity.x * dt, playerBody->GetLinearVelocity().y * dt), 1);
 		}
 
 		if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_LEFT)) {// makes player move left
-			playerBody->SetLinearVelocity(b2Vec2(-moveVelocity.x * dt, playerBody->GetLinearVelocity().y));
+			playerBody->ApplyLinearImpulseToCenter(b2Vec2(-moveVelocity.x * dt, playerBody->GetLinearVelocity().y * dt),1);
 		}
 
 		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
-			//currentBullet->bulletBody->SetActive(0);
-			//currentBullet->shoot(b2Vec2(10*dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
 			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x +1, playerBody->GetPosition().y + 1, 0));
 
-			// makes sure the current bullet is up to date
-			//bulletIndex++;
-			//currentBullet = &bullets[bulletIndex];
-			//if (bulletIndex == 9)
-			//	bulletIndex = 0;
+		}
+		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {// makes player shoot up
+			shoot(b2Vec2(0, 10 * dt), gef::Vector4(playerBody->GetPosition().x, playerBody->GetPosition().y + 1.5f, 0));
+
+		}
+		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_A)) {// makes player shoot back
+			shoot(b2Vec2(-10 * dt, 0), gef::Vector4(playerBody->GetPosition().x - 1, playerBody->GetPosition().y + 1, 0));
+
+		}
+		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_S)) {
+			if (isJumping) {// if the player is jumping, sends bullet at a downward angle
+				shoot(b2Vec2(10 * dt, -5*dt), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+
+			}
+			else// makes player shoot low
+				shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+
 		}
 	}
+}
+	
 	
 
-}
 
 void Player::shoot(b2Vec2 inBulletVelocity, gef::Vector4 inBulletPos) {
 	Bullet* newBullet = new Bullet();
 	newBullet->setPrimitiveBuilder(getPrimitiveBuilder());
 	newBullet->setWorld(getWorld());
 	newBullet->bulletInit(inBulletVelocity, inBulletPos);
-	newBullet->bulletBody->SetActive(1);
+	//newBullet->bulletBody->SetAwake(1);
+
+	for (int i = 0; i < bullets.size(); i++) {
+		if (bullets[i] == NULL) {
+			bullets[i] = newBullet;
+			return;
+		}
+	}
 
 	bullets.push_back(newBullet);// only in this scope does this bullet exist
-}
+	//bulletIndex++;
+} 
 
 void Player::die() {
 	// commit die on the player
 	playerBody->SetFixedRotation(0);
-	playerBody->ApplyTorque(10, 1);
+	playerBody->ApplyTorque(30, 1);
 	isDead = 1;
 	
 
@@ -307,7 +376,7 @@ Enemy::Enemy()
 	moveVelocity.y = 0;
 
 	jumpVelocity.x = 0;
-	jumpVelocity.y = 500;
+	jumpVelocity.y = 1000;
 
 
 }
@@ -374,13 +443,21 @@ void Enemy::enemyInit(gef::Vector4 inPosition, float inHealth) {
 	}
 
 	currentBullet = &bullets[0];*/
-	//enemyBody->ApplyTorque(6000.0f, 1); turn on for crazy stuff to happen
+	//enemyBody->ApplyForceToCenter(b2Vec2(0,1000), 1);// turn on for crazy stuff to happen
+	//enemyBody->ApplyTorque(6000.0f, 1);// turn on for crazy stuff to happen
 	isDead = 0;
+
 }
 
 void Enemy::enemyUpdate(float dt) {
-	if (health <= 0) {
-		die();
+	if (!isDead) {
+		if (enemyBody->GetPosition().y <= -10) {
+			die();
+		}
+
+		if (health <= 0) {
+			die();
+		}
 	}
 }
 
@@ -392,7 +469,8 @@ void Enemy::shoot() {
 
 void Enemy::die() {
 	enemyBody->SetFixedRotation(0);// makes enemy flop over
-	enemyBody->ApplyTorque(10, 1);
+	enemyBody->ApplyTorque(-30, 1);
+	isDead = 1;
 
 
 }
@@ -457,7 +535,7 @@ void Floor::floorInit(gef::Vector4 inHalfDimentions, gef::Vector4 inPosition) {
 Bullet::Bullet()
 {
 	set_type(BULLET);
-	moveVelocity = gef::Vector4(500, 0, 0, 0);
+	moveVelocity = gef::Vector4(0.05, 0.01, 0, 0);
 	damage = 69;
 	halfSizes = gef::Vector4(0.2f, 0.1f, 0.1f);
 }
@@ -490,19 +568,24 @@ void Bullet::bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos) {
 	// create a connection between the rigid body and GameObject
 	bulletBody->SetUserData(this);
 	bulletBody->SetBullet(1);// this isn't to do with it crashing
+	isAlive = 1;
+	//bulletBody->SetActive(1);
 	//bulletBody->SetAwake(1);
+	moveVelocity.set_x(bulletVelocity.x);
+	moveVelocity.set_y(bulletVelocity.y);
+
 	bulletBody->ApplyLinearImpulseToCenter(bulletVelocity, 1);
 }
 
 
 
 void Bullet::bulletUpdate(float dt) {
-
+	bulletBody->ApplyLinearImpulseToCenter(b2Vec2(moveVelocity.x(), moveVelocity.y()), 1);
 
 }
 
 void Bullet::die() {// should be called when making contact with an enemy
-	bulletBody == NULL;
+	bulletBody = NULL;
 	delete &bulletBody;
 }
 
