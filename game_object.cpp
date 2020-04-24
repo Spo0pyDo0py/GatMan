@@ -118,15 +118,15 @@ PrimitiveBuilder* GameObject::getPrimitiveBuilder() {
 b2World* GameObject::getWorld() {
 	return worldP;
 }
-
+#pragma region Goal Stuff
 Goal::Goal() {
-
+	set_type(GOAL);
 }
 void Goal::goalInit(b2Vec2 inPosition) {
 	// loads in the model for the goal
-	halfDimentions = b2Vec2(0.1f, 0.2f);
+	halfDimentions = b2Vec2(1.0f, 1.0f);
 
-	const char* scene_asset_filename = "world.scn";
+	const char* scene_asset_filename = "chungus.scn";
 	sceneP = LoadSceneAssets(*platformP, scene_asset_filename);
 	if (sceneP)
 	{
@@ -168,6 +168,10 @@ void Goal::goalInit(b2Vec2 inPosition) {
 void Goal::goalUpdate(float dt) {
 
 }
+#pragma endregion
+
+
+
 
 #pragma region Player Stuff
 Player::Player()
@@ -177,7 +181,7 @@ Player::Player()
 	moveVelocity.y = 0;
 
 	jumpVelocity.x = 0;
-	jumpVelocity.y = 200;
+	jumpVelocity.y = 230;
 
 
 }
@@ -298,7 +302,7 @@ void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 
 			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_SPACE)) {// makes player jump
 				if (!isJumping) {
-					playerBody->ApplyForceToCenter(b2Vec2(jumpVelocity.x, jumpVelocity.y), 1);
+					playerBody->ApplyForceToCenter(b2Vec2(jumpVelocity.x, jumpVelocity.y).operator*= dt, 1);
 				}
 			isJumping = 1;
 			}
@@ -312,15 +316,15 @@ void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 		}
 
 		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
-			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x +1, playerBody->GetPosition().y + 1, 0));
+			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x +1.3, playerBody->GetPosition().y + 1, 0));
 
 		}
 		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {// makes player shoot up
-			shoot(b2Vec2(0, 10 * dt), gef::Vector4(playerBody->GetPosition().x, playerBody->GetPosition().y + 1.5f, 0));
+			shoot(b2Vec2(0, 10 * dt), gef::Vector4(playerBody->GetPosition().x, playerBody->GetPosition().y + 2.0f, 0));
 
 		}
 		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_A)) {// makes player shoot back
-			shoot(b2Vec2(-10 * dt, 0), gef::Vector4(playerBody->GetPosition().x - 1, playerBody->GetPosition().y + 1, 0));
+			shoot(b2Vec2(-10 * dt, 0), gef::Vector4(playerBody->GetPosition().x - 1.3, playerBody->GetPosition().y + 1, 0));
 
 		}
 		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_S)) {

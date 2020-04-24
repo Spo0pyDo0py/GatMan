@@ -21,7 +21,6 @@ SceneApp::SceneApp(gef::Platform& platform) :
 	input_manager_(NULL),
 	font_(NULL),
 	world(NULL),
-	//player_body_(NULL),
 	button_icon_(NULL)
 {
 }
@@ -30,6 +29,7 @@ void SceneApp::Init()
 {
 	srand(time(NULL));// makes things random
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
+	//audio_manager_ = gef::AudioManager::Create();// <-- doing this breaks everything (need to reinstall gef)
 	InitFont();
 	for (int i = 0; i < PLATFORM_COUNT; i++)// initilizes the enemy randomized pattern cast
 		enemiesCast.push_back(0);
@@ -54,8 +54,6 @@ void SceneApp::CleanUp()
 	delete world;
 	world = NULL;
 
-	//delete ground_mesh_;
-	//ground_mesh_ = NULL;
 
 	CleanUpFont();
 
@@ -223,7 +221,9 @@ void SceneApp::InitGoal() {
 	goal = new Goal();
 	goal->setPrimitiveBuilder(primitive_builder_);
 	goal->setWorld(world);
-	goal->goalInit(b2Vec2(platforms.back()->floorBody->GetPosition().x + 2, platforms.back()->floorBody->GetPosition().y + 2));// sets 
+	goal->setScene(scene_assets_);
+	goal->setPlatform(&platform_);
+	goal->goalInit(b2Vec2(platforms.back()->floorBody->GetPosition().x + 2, platforms.back()->floorBody->GetPosition().y + 2));// sets position of goal just above the last platform
 
 }
 
@@ -246,12 +246,12 @@ void SceneApp::DrawHUD()
 	if(font_)
 	{
 		// display frame rate
-		font_->RenderText(sprite_renderer_, gef::Vector4(850.0f, 510.0f, -0.9f), 1.0f, 0xffffffff, gef::TJ_LEFT, "FPS: %.1f", fps_);
+		font_->RenderText(sprite_renderer_, gef::Vector4(850.0f, 510.0f, -0.9f), 1.0f, 0xffffffff, gef::TJ_LEFT, "FPS: %0.1f", fps_);
 		// display player's health
 		//if(player)
 		if (gameState == GAME || gameState == DEAD) {
 			if (player->health >= 0) {
-				font_->RenderText(sprite_renderer_, gef::Vector4(720.0f, 460.0f, -0.9f), 1.0f, 0xffffffff, gef::TJ_LEFT, "Player's Health: %.1f", player->health);
+				font_->RenderText(sprite_renderer_, gef::Vector4(740.0f, 460.0f, -0.9f), 1.0f, 0xffffffff, gef::TJ_LEFT, "Player's Health: %1.0f", player->health);
 			}
 			else {
 				font_->RenderText(sprite_renderer_, gef::Vector4(885.0f, 460.0f, -0.9f), 1.0f, 0xff0000ff, gef::TJ_LEFT, "ded :(");
@@ -355,16 +355,16 @@ void SceneApp::UpdateSimulation(float frame_time)
 					bulletP = (Bullet*)bodyA->GetUserData();
 				}
 
+				if (gameObjectA->type() == GOAL) {
+					goalP = (Goal*)bodyA->GetUserData();
+				}
+
 				if (gameObjectB)
 				{
 					if (gameObjectB->type() == PLAYER)
 					{
 						playerP = (Player*)bodyB->GetUserData();
-						//player->isJumping = 0;// flipped places
-						if (goalP) {
-							WinInit();
-							gameState = WIN;
-						}
+
 					}
 
 					if (gameObjectB->type() == BULLET) {
@@ -385,6 +385,14 @@ void SceneApp::UpdateSimulation(float frame_time)
 							}
 
 						}
+
+						else if (platformP) {
+							//platformP = (Floor*)bodyB->GetUserData();
+							if (bulletP) {
+								bulletP->isAlive = 0;
+							}
+
+						}
 						
 
 					}
@@ -396,22 +404,31 @@ void SceneApp::UpdateSimulation(float frame_time)
 
 							}
 							else if (playerP) {
-								playerP->decrementHealth(5);
+ 								playerP->decrementHealth(5);
 							}
 						}
 
 
 					}
 
-					if (gameObjectB->type() == FLOOR) {
+					if (gameObjectB->type() == FLOOR) {// floor never seems to be object b
 						platformP = (Floor*)bodyB->GetUserData();
 						if (bulletP) {
 							bulletP->isAlive = 0;
 						}
 						if (playerP) {
+							//playerP->isJumping = 1;
 							playerP->onPlatform = 1;
 						}
 					}
+					if (gameObjectB->type() == GOAL) {// this is the one that gets called
+						goalP = (Goal*)bodyB->GetUserData();
+						if (playerP) {
+							WinInit();
+							gameState = WIN;
+						}
+					}
+
 
 				}
 			}
@@ -496,7 +513,7 @@ void SceneApp::FrontendRender()
 {
 	sprite_renderer_->Begin();
 	
-	// Render controls
+	// render controls
 	gef::Sprite controlsGraphic;
 	controlsGraphic.set_texture(controls);
 	controlsGraphic.set_position(gef::Vector4(platform_.width()*0.85f, platform_.height()*0.5f, -0.99f));
@@ -504,7 +521,7 @@ void SceneApp::FrontendRender()
 	controlsGraphic.set_width(272.0f);// 608 544
 	sprite_renderer_->DrawSprite(controlsGraphic);
 
-	// Render controls
+	// render gatman text
 	gef::Sprite gatmanGraphic;
 	gatmanGraphic.set_texture(gatman);
 	gatmanGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
@@ -512,9 +529,25 @@ void SceneApp::FrontendRender()
 	gatmanGraphic.set_width(957.0f);// 608 544
 	sprite_renderer_->DrawSprite(gatmanGraphic);
 
+	/*// render clear heart
+	gef::Sprite winGraphic;
+	winGraphic.set_texture(clearHeart);
+	winGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
+	winGraphic.set_height(24.0f);
+	winGraphic.set_width(27.0f);// 27 24
+	sprite_renderer_->DrawSprite(winGraphic);
+
+	// render ace heart
+	gef::Sprite aceGraphic;
+	aceGraphic.set_texture(aceHeart);
+	aceGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
+	aceGraphic.set_height(24.0f);
+	aceGraphic.set_width(27.0f);// 27 24
+	sprite_renderer_->DrawSprite(aceGraphic);*/
+
 	font_->RenderText(
 		sprite_renderer_,
-		gef::Vector4(platform_.width()*0.05f, platform_.height()*0.89f, -0.99f),
+		gef::Vector4(platform_.width()*0.01f, platform_.height()*0.89f, -0.99f),
 		1.0f,
 		0xffffffff,
 		gef::TJ_LEFT,
@@ -522,11 +555,11 @@ void SceneApp::FrontendRender()
 
 	font_->RenderText(
 		sprite_renderer_,
-		gef::Vector4(platform_.width()*0.05f, platform_.height()*0.94f, -0.99f),
+		gef::Vector4(platform_.width()*0.01f, platform_.height()*0.94f, -0.99f),
 		1.0f,
 		0xffffffff,
 		gef::TJ_LEFT,
-		"Difficulty: ", int(difficulty));// wont display difficulty
+		"Difficulty: %1.0f", float(difficulty));// apparently it wont display numbers unless it's a float, so mask time
 
 
 	// render "PRESS" text
@@ -611,10 +644,30 @@ void SceneApp::WinUpdate(float frame_time) {
 void SceneApp::WinRender() {
 	gef::Sprite win;
 	if (player->health == 100) {
+		switch (difficulty) {
+		case 1: easyBeat, easyAced = 1;
+			break;
 
+		case 2: regularBeat, regularAced = 1;
+			break;
+
+		case 3: hardBeat, hardAced = 1;
+			break;
+
+		}
 	}
 	else {
+		switch (difficulty) {
+		case 1: easyBeat = 1;
+			break;
 
+		case 2: regularBeat = 1;
+			break;
+
+		case 3: hardBeat = 1;
+			break;
+
+		}
 	}
 	win.set_texture(youWin);
 	win.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
@@ -955,7 +1008,7 @@ void SceneApp::GameRender()
 	// draw goal
 	renderer_3d_->set_override_material(&primitive_builder_->green_material());
 	renderer_3d_->DrawMesh(*goal);
-	//renderer_3d_->set_override_material(NULL);
+	renderer_3d_->set_override_material(NULL);
 
 	renderer_3d_->End();
 

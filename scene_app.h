@@ -6,7 +6,7 @@
 #include "primitive_builder.h"
 #include <graphics/mesh_instance.h>
 #include <input/input_manager.h>
-
+#include <audio/audio_manager.h>
 #include <box2d/Box2D.h>
 #include "game_object.h"
 #include "Camera.h"
@@ -59,6 +59,7 @@ private:
 	gef::SpriteRenderer* sprite_renderer_;
 	gef::Font* font_;
 	gef::InputManager* input_manager_;
+	gef::AudioManager* audio_manager_;
 	int difficulty;
 	bool easyBeat;
 	bool easyAced;
@@ -66,7 +67,7 @@ private:
 	bool regularAced;
 	bool hardBeat;
 	bool hardAced;
-	//gef::AudioManager* audio_manager_;
+
 
 	//
 	// INTRO DECLARATIONS
@@ -81,6 +82,8 @@ private:
 	gef::Texture* button_icon_;
 	gef::Texture* controls;
 	gef::Texture* gatman;
+	gef::Texture* clearHeart;
+	gef::Texture* aceHeart;
 	//
 	// GAME DECLARATIONS
 	//
