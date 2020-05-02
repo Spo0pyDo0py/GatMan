@@ -41,6 +41,7 @@ namespace gef
 	class InputManager;
 	class Renderer3D;
 	class Scene;
+	class Audio;
 }
 
 class SceneApp : public gef::Application

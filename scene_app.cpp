@@ -525,7 +525,7 @@ void SceneApp::FrontendInit()
 	platform_.set_render_target_clear_colour(gef::Colour(0.5f, 0.8f, 0.5f));// rgba
 
 	changingMusicVol = 0, changingSFXVol = 0, changingMasterVol = 0;
-	musicVolText, SFXVolText, masterVolText = 5;
+	musicVolText = 5, SFXVolText = 5, masterVolText = 5;
 }
 
 void SceneApp::FrontendRelease()
@@ -565,14 +565,20 @@ void SceneApp::FrontendUpdate(float frame_time)// welcome to "if" land!
 
 	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_M)) {
 		changingMusicVol = !changingMusicVol;
+		changingSFXVol = 0;
+		changingMasterVol = 0;
 	}
 
 	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_S)) {
 		changingSFXVol = !changingSFXVol;
+		changingMusicVol = 0;
+		changingMasterVol = 0;
 	}
 
 	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_A)) {
 		changingMasterVol = !changingMasterVol;
+		changingSFXVol = 0;
+		changingMusicVol = 0;
 	} 
 
 #pragma region Music Stuff
@@ -657,18 +663,6 @@ void SceneApp::FrontendUpdate(float frame_time)// welcome to "if" land!
 		}
 	}
 #pragma endregion
-
-
-	
-
-
-
-	/*if (controller->buttons_down() & gef_SONY_CTRL_CROSS) {
-		FrontendRelease();
-		gameState = GAME;
-		GameInit();
-	}*/
-
 }
 
 void SceneApp::FrontendRender()
@@ -744,17 +738,6 @@ void SceneApp::FrontendRender()
 		}
 	}
 
-
-
-
-	/*// render ace heart
-	gef::Sprite aceGraphic;
-	aceGraphic.set_texture(aceHeart);
-	aceGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
-	aceGraphic.set_height(24.0f);
-	aceGraphic.set_width(27.0f);// 27 24
-	sprite_renderer_->DrawSprite(aceGraphic);*/
-
 	font_->RenderText(
 		sprite_renderer_,
 		gef::Vector4(platform_.width()*0.01f, platform_.height()*0.89f, -0.99f),
@@ -771,34 +754,29 @@ void SceneApp::FrontendRender()
 		gef::TJ_LEFT,
 		"Difficulty: %1.0f", float(difficulty));// apparently it wont display numbers unless it's a float, so mask time
 
-
-	// render "PRESS" text
-	/*font_->RenderText(
+	font_->RenderText(// renders text for music volume
 		sprite_renderer_,
-		gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f - 56.0f, -0.99f),
+		gef::Vector4(platform_.width()*0.23f, platform_.height()*0.75f, -0.99f),
 		1.0f,
-		0xffffffff,
-		gef::TJ_CENTRE,
-		"PRESS");
+		0xff000000,
+		gef::TJ_LEFT,
+		"%1.0f", float(musicVolText));
 
-	// Render button icon
-	gef::Sprite button;
-	button.set_texture(button_icon_);
-	button.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
-	button.set_height(32.0f);
-	button.set_width(32.0f);
-	sprite_renderer_->DrawSprite(button);
-
-
-	// render "TO START" text
-	font_->RenderText(
+	font_->RenderText(// renders text for SFX volume
 		sprite_renderer_,
-		gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f + 32.0f, -0.99f),
+		gef::Vector4(platform_.width()*0.23f, platform_.height()*0.80f, -0.99f),
 		1.0f,
-		0xffffffff,
-		gef::TJ_CENTRE,
-		"TO START");*/
+		0xff000000,
+		gef::TJ_LEFT,
+		"%1.0f", float(SFXVolText));
 
+	font_->RenderText(// renders text for master volume
+		sprite_renderer_,
+		gef::Vector4(platform_.width()*0.23f, platform_.height()*0.85f, -0.99f),
+		1.0f,
+		0xff000000,
+		gef::TJ_LEFT,
+		"%1.0f", float(masterVolText));
 
 	DrawHUD();
 	sprite_renderer_->End();
@@ -836,6 +814,7 @@ void SceneApp::WinInit() {
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	youWin = CreateTextureFromPNG("u win.png", platform_);
 	youAced = CreateTextureFromPNG("u ace.png", platform_);
+	// determines if the player aced the game or not
 	if (player->health >= 100) {
 		switch (difficulty) {
 		case 1: easyBeat = 1, easyAced = 1, aced = 1;
