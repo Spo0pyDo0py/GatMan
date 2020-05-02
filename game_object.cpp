@@ -182,8 +182,6 @@ Player::Player()
 
 	jumpVelocity.x = 0;
 	jumpVelocity.y = 230;
-
-
 }
 
 void Player::playerInit() {
@@ -231,36 +229,9 @@ void Player::playerInit() {
 	playerBody->SetFixedRotation(1);// makes it so the player cant rotate
 
 	health = 100;
-
-	/* this stuff is for model loading for the player :)	
-	
-	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
-
-	// create the renderer for draw 3D geometry
-	renderer_3d_ = gef::Renderer3D::Create(platform_);
-
-	// initialise primitive builder to make create some 3D geometry easier
-	primitive_builder_ = new PrimitiveBuilder(platform_);
-
-	// load the assets in from the .scn
-	const char* scene_asset_filename = "world.scn";
-	scene_assets_ = LoadSceneAssets(platform_, scene_asset_filename);
-	if (scene_assets_)
-	{
-		mesh_instance_.set_mesh(GetMeshFromSceneAssets(scene_assets_));
-	}
-	else
-	{
-		gef::DebugOut("Scene file %s failed to load\n", scene_asset_filename);
-	}
-	
-	// in header
-		gef::MeshInstance mesh_instance_;
-		gef::Scene* scene_assets_;
-	
-	
-	*/
 	isDead = 0;
+
+	playerClock.Reset();
 }
 
 void Player::decrementHealth(float inDamage)
@@ -269,6 +240,8 @@ void Player::decrementHealth(float inDamage)
 }
 
 void Player::playerUpdate(float dt) {
+
+
 	if (!isDead) {
 		if (playerBody->GetPosition().y <= -10) {
 			die();
@@ -292,7 +265,9 @@ void Player::playerUpdate(float dt) {
 		}
 	}
 
-
+	if (playerClock.GetMilliseconds() >= 1000) {
+		canShoot = 1;
+	}
 
 }
 
@@ -302,7 +277,7 @@ void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 
 			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_SPACE)) {// makes player jump
 				if (!isJumping) {
-					playerBody->ApplyForceToCenter(b2Vec2(jumpVelocity.x, jumpVelocity.y).operator*= dt, 1);
+					playerBody->ApplyForceToCenter(b2Vec2(jumpVelocity.x, jumpVelocity.y), 1);
 				}
 			isJumping = 1;
 			}
@@ -314,28 +289,41 @@ void Player::playerUpdateControls(float dt, gef::Keyboard* keyboard) {
 		if (inputManP->keyboard() && keyboard->IsKeyDown(gef::Keyboard::KC_LEFT)) {// makes player move left
 			playerBody->ApplyLinearImpulseToCenter(b2Vec2(-moveVelocity.x * dt, playerBody->GetLinearVelocity().y * dt),1);
 		}
-
-		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
-			shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x +1.3, playerBody->GetPosition().y + 1, 0));
-
-		}
-		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {// makes player shoot up
-			shoot(b2Vec2(0, 10 * dt), gef::Vector4(playerBody->GetPosition().x, playerBody->GetPosition().y + 2.0f, 0));
-
-		}
-		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_A)) {// makes player shoot back
-			shoot(b2Vec2(-10 * dt, 0), gef::Vector4(playerBody->GetPosition().x - 1.3, playerBody->GetPosition().y + 1, 0));
-
-		}
-		if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_S)) {
-			if (isJumping) {// if the player is jumping, sends bullet at a downward angle
-				shoot(b2Vec2(10 * dt, -5*dt), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+		if (canShoot) {
+			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_D)) {// makes player shoot right
+				shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 1.3, playerBody->GetPosition().y + 1, 0));
+				playerClock.Reset();
+				canShoot = 0;
+			}
+			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {// makes player shoot up
+				shoot(b2Vec2(0, 10 * dt), gef::Vector4(playerBody->GetPosition().x, playerBody->GetPosition().y + 2.0f, 0));
+				playerClock.Reset();
+				canShoot = 0;
 
 			}
-			else// makes player shoot low
-				shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_A)) {// makes player shoot back
+				shoot(b2Vec2(-10 * dt, 0), gef::Vector4(playerBody->GetPosition().x - 1.3, playerBody->GetPosition().y + 1, 0));
+				playerClock.Reset();
+				canShoot = 0;
 
+			}
+			if (inputManP->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_S)) {
+				if (isJumping) {// if the player is jumping, sends bullet at a downward angle
+					shoot(b2Vec2(10 * dt, -5 * dt), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+					playerClock.Reset();
+					canShoot = 0;
+
+				}
+				else {// makes player shoot low
+					shoot(b2Vec2(10 * dt, 0), gef::Vector4(playerBody->GetPosition().x + 1, playerBody->GetPosition().y, 0));
+					playerClock.Reset();
+					canShoot = 0;
+				}
+
+			}
 		}
+
+		
 	}
 }
 	
@@ -451,9 +439,11 @@ void Enemy::enemyInit(gef::Vector4 inPosition, float inHealth) {
 	//enemyBody->ApplyTorque(6000.0f, 1);// turn on for crazy stuff to happen
 	isDead = 0;
 
+	enemyClock.Reset();
 }
 
-void Enemy::enemyUpdate(float dt) {
+void Enemy::enemyUpdate(float dt, b2Vec2 inPlayerPos) {
+
 	if (!isDead) {
 		if (enemyBody->GetPosition().y <= -10) {
 			die();
@@ -463,13 +453,52 @@ void Enemy::enemyUpdate(float dt) {
 			die();
 		}
 	}
-}
 
-void Enemy::shoot() {
-	if (!isDead) {
+	b2Vec2 playerToEnemy;// vector from enemy to player
+	playerToEnemy = inPlayerPos - enemyBody->GetPosition();
+	
+	if (playerToEnemy.x >= -15.0f) {
+		//enemyBody->ApplyForceToCenter(b2Vec2(0, 100),1);
+		if (enemyClock.GetMilliseconds() >= 3000) {
+			enemyClock.Reset();
 
+			// start shooting
+			if (!isDead) {
+				Bullet* newBullet = new Bullet();
+				newBullet->setPrimitiveBuilder(getPrimitiveBuilder());
+				newBullet->setWorld(getWorld());
+				newBullet->bulletInit(b2Vec2(-10 * dt, 0), gef::Vector4(enemyBody->GetPosition().x - 1.3, enemyBody->GetPosition().y + 1, 0));
+				//newBullet->bulletBody->SetAwake(1);
+
+				for (int i = 0; i < bullets.size(); i++) {
+					if (bullets[i] == NULL) {
+						bullets[i] = newBullet;
+						return;
+					}
+				}
+
+				bullets.push_back(newBullet);// only in this scope does this bullet exist
+				//bulletIndex++;
+			}
+		}
 	}
+
+	// deleton for bullets
+	for (int i = 0; i < bullets.size(); i++) {
+		if (bullets[i] == NULL) {
+
+		}
+		else {
+			if (!bullets[i]->isAlive) {// bullet is null
+				delete bullets[i];
+				bullets[i] = NULL;
+			}
+		}
+	}
+
 }
+
+
 
 void Enemy::die() {
 	enemyBody->SetFixedRotation(0);// makes enemy flop over
@@ -579,6 +608,7 @@ void Bullet::bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos) {
 	moveVelocity.set_y(bulletVelocity.y);
 
 	bulletBody->ApplyLinearImpulseToCenter(bulletVelocity, 1);
+	bulletClock.Reset();
 }
 
 
@@ -586,6 +616,10 @@ void Bullet::bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos) {
 void Bullet::bulletUpdate(float dt) {
 	bulletBody->ApplyLinearImpulseToCenter(b2Vec2(moveVelocity.x(), moveVelocity.y()), 1);
 
+	if (bulletClock.GetMilliseconds() >= 2000) {// bullets despawn after 2 seconds
+		bulletClock.Reset();
+		isAlive = 0;
+	}
 }
 
 void Bullet::die() {// should be called when making contact with an enemy

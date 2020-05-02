@@ -13,8 +13,14 @@
 #include <vector>
 #include <random>
 #include <time.h>
+#include <chrono>// my favorate megaman character has the same ending to hs name
 
-#define PLATFORM_COUNT 30
+
+using std::chrono::duration_cast;
+using std::chrono::seconds;
+// define the alias "theClock" for the clock type used
+typedef std::chrono::steady_clock theClock;
+
 
 // FRAMEWORK FORWARD DECLARATIONS
 enum GAMESTATE {
@@ -68,29 +74,43 @@ private:
 	bool hardBeat;
 	bool hardAced;
 
+	b2Timer timer;// timer for the intro
 
+	// audio variables
+//	int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
+//	int32 soundBoxCollectedVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
+	gef::VolumeInfo musicVolumeInfo;// controls the SFX's volume
+	gef::VolumeInfo SFXVolumeInfo;// controls the SFX's volume
+	gef::VolumeInfo masterVolumeInfo;// controls the SFX's volume
+	int musicVolText, SFXVolText, masterVolText;
 	//
 	// INTRO DECLARATIONS
 	//
 	std::vector<std::string> quotes;
-	int whatQuote;
+	int whatQuote;// represents what quote it's gonna be
 	gef::Texture* background;// for some reason textures must be pointers
-
 	//
 	// FRONTEND DECLARATIONS
 	//
 	gef::Texture* button_icon_;
-	gef::Texture* controls;
-	gef::Texture* gatman;
+	gef::Texture* backgroundMenu;
 	gef::Texture* clearHeart;
 	gef::Texture* aceHeart;
+
+	bool changingMusicVol, changingSFXVol, changingMasterVol;
 	//
 	// GAME DECLARATIONS
 	//
+	gef::Texture* easyBackground;
+	gef::Texture* regularBackground;
+	gef::Texture* hardBackground;
+
 	gef::Renderer3D* renderer_3d_;
 	PrimitiveBuilder* primitive_builder_;
 	gef::Scene* scene_assets_;
 	GAMESTATE gameState;
+	int platformCount;
+	int enemyHealthMod;// modifier to add extra health to enemys
 
 	//
 	// DEAD DECLARATIONS
@@ -101,6 +121,8 @@ private:
 	// WIN DECLARATIONS
 	//
 	gef::Texture* youWin;
+	gef::Texture* youAced;
+	bool aced;
 
 	//
 	// PAUSE DECLARATIONS
@@ -123,11 +145,7 @@ private:
 	std::vector<bool> enemiesCast;
 	int enemyCount;
 
-	// audio variables
-//	int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
-//	int32 soundBoxCollectedVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
-//	gef::VolumeInfo soundVolumeInfo;// controlls the sound's volume
-	//bool isSoundLoud = 0;// toggle for volume controlled by dpad
+
 
 	// loading the music doesn't return info
 	bool isMusicPlaying = 0;// toggle for music is playing
@@ -144,7 +162,7 @@ private:
 	float fps_;
 
 	void IntroInit();
-	void IntroRelese();
+	void IntroRelease();
 	void IntroUpdate(float frame_time);
 	void IntroRender();
 

@@ -66,15 +66,10 @@ public:
 	void goalUpdate(float dt);
 	gef::MeshInstance goalModel;
 	b2Vec2 halfDimentions;
-	//void die();// despawns the bullet
-
-	/*getters 'n' setters*/
 
 
 
-	//gef::Vector4 moveVelocity;// the bullet can miss by going off to the side hence it's a vector 4
 	gef::Vector4 halfSizes;// needed for mesh
-	//float damage;// the damage a bullet does on impact to a gameobject
 	b2Body* goalBody;
 	bool isAlive;
 
@@ -84,15 +79,13 @@ class Bullet : public GameObject
 {
 public:
 	Bullet();
-	//~Bullet();
 	void bulletInit(b2Vec2 bulletVelocity, gef::Vector4 bulletPos);
 	void bulletUpdate(float dt);
 	void die();// despawns the bullet
 
-	/*getters 'n' setters*/
 
 
-
+	b2Timer bulletClock;
 	gef::Vector4 moveVelocity;// the bullet can miss by going off to the side hence it's a vector 4
 	gef::Vector4 halfSizes;// needed for mesh
 	float damage;// the damage a bullet does on impact to a gameobject
@@ -124,6 +117,9 @@ public:
 	bool isJumping;
 	bool isDead;
 	bool onPlatform;
+	bool canShoot;
+
+	b2Timer playerClock;
 
 	std::vector<Bullet*> bullets;
 
@@ -137,19 +133,18 @@ public:
 	//~Enemy();
 	void decrementHealth(float damage);
 	void enemyInit(gef::Vector4 inPosition, float inHealth);
-	void enemyUpdate(float dt);
-	void shoot();// shoots a bullet (might need delta time if the bullets push the player back)
+	void enemyUpdate(float dt, b2Vec2 inPlayerPos);
 	void die();
 
 	b2Vec2 moveVelocity;
 	b2Vec2 jumpVelocity;
-	// enemy clock
-	int bulletCount;// amount of bullets the player has
-	float health;// health.. pretty self explanitiory, when at 0 the player dies
+	b2Timer enemyClock;
+	float health;// health... when at 0 the enemy dies
 	b2Body* enemyBody;
 	gef::MeshInstance enemyModel;
-	std::vector<Bullet> bullets;
 	bool isDead;
+
+	std::vector<Bullet*> bullets;
 	//Bullet* currentBullet; // points at the current bullet in the mag
 };
 

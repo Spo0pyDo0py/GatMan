@@ -31,13 +31,14 @@ void SceneApp::Init()
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	//audio_manager_ = gef::AudioManager::Create();// <-- doing this breaks everything (need to reinstall gef)
 	InitFont();
-	for (int i = 0; i < PLATFORM_COUNT; i++)// initilizes the enemy randomized pattern cast
-		enemiesCast.push_back(0);
+
+
+
 	// initialise input manager
 	input_manager_ = gef::InputManager::Create(platform_);
 	scene_assets_ = NULL;
-	gameState = LOAD;
-	FrontendInit();
+	gameState = INTRO;// setting these to intro breaks everything
+	IntroInit();
 	difficulty = 1;
 	easyBeat = 0;
 	easyAced = 0;
@@ -86,6 +87,9 @@ bool SceneApp::Update(float frame_time)
 
 
 	switch (gameState) {
+	case INTRO:
+		IntroUpdate(frame_time);
+		break;
 	case LOAD:
 		FrontendUpdate(frame_time);
 		break;
@@ -100,7 +104,6 @@ bool SceneApp::Update(float frame_time)
 		break;
 
 	case WIN:
-		GameUpdate(frame_time);
 		WinUpdate(frame_time);
 		break;
 
@@ -119,6 +122,9 @@ bool SceneApp::Update(float frame_time)
 void SceneApp::Render()
 {
 	switch (gameState) {
+	case INTRO:
+		IntroRender();
+		break;
 	case LOAD:
 		FrontendRender();
 		break;
@@ -182,7 +188,7 @@ void SceneApp::InitGround()
 	float xIncrement = 8;
 	float yIncrement = 0;
 	// sets up the vector of platforms and gives them randomized values for their xy position and their length (y)
-	for (int i = 0; i < PLATFORM_COUNT; i++) {
+	for (int i = 0; i < platformCount; i++) {
 		platforms.push_back(new Floor());
 		platforms[i]->setPrimitiveBuilder(primitive_builder_);
 		platforms[i]->setWorld(world);
@@ -190,7 +196,7 @@ void SceneApp::InitGround()
 		xIncrement += rand() % 7 + 3;
 		yIncrement += rand() % 3;
 		if (platforms[i]->hasEnemy) {
-			enemiesCast[i] = 1;// might break the code :(
+			enemiesCast[i] = 1;
 		}	
 	}
 
@@ -201,15 +207,15 @@ void SceneApp::InitGround()
 void SceneApp::InitEnemies() {
 	// sets up the vector of enemys and gives them randomized values for their xy position depending on which platform they belong to
 	int j = 0;
-	for (int i = 0; i < PLATFORM_COUNT; i++) {
+	for (int i = 0; i < platformCount; i++) {
 		if (enemiesCast[i] == true) {// uses the cast of the pattern in order to see which platforms have enemies. If they do, makes them a thing
 			enemies.push_back(new Enemy());
 			enemies[j]->setPrimitiveBuilder(primitive_builder_);
 			enemies[j]->setWorld(world);
 			enemies[j]->setScene(scene_assets_);
 			enemies[j]->setPlatform(&platform_);
-			enemies[j]->enemyInit(gef::Vector4(platforms[i]->floorBody->GetPosition().x, platforms[i]->floorBody->GetPosition().y, 0), rand() % 100 + 50);// declares enemies at randomized platforms location with 
-			platforms[i]->platformEnemyP = enemies[j];// inbetween 50 and 150 health
+			enemies[j]->enemyInit(gef::Vector4(platforms[i]->floorBody->GetPosition().x, platforms[i]->floorBody->GetPosition().y, 0), rand() % 100 + enemyHealthMod);// declares enemies at randomized platforms location with 
+			platforms[i]->platformEnemyP = enemies[j];
 			j++;
 		}
 	}
@@ -223,7 +229,7 @@ void SceneApp::InitGoal() {
 	goal->setWorld(world);
 	goal->setScene(scene_assets_);
 	goal->setPlatform(&platform_);
-	goal->goalInit(b2Vec2(platforms.back()->floorBody->GetPosition().x + 2, platforms.back()->floorBody->GetPosition().y + 2));// sets position of goal just above the last platform
+	goal->goalInit(b2Vec2(platforms.back()->floorBody->GetPosition().x + 1, platforms.back()->floorBody->GetPosition().y + 2));// sets position of goal just above the last platform
 
 }
 
@@ -273,7 +279,7 @@ void SceneApp::SetupLights()
 	// add a point light that is almost white, but with a blue tinge
 	// the position of the light is set far away so it acts light a directional light
 	gef::PointLight default_point_light;
-	default_point_light.set_colour(gef::Colour(0.4f, 0.4f, 0.5f, 1.0f));// was:   0.1f, 0.1f, 0.3f, 1.0f
+	default_point_light.set_colour(gef::Colour(0.3f, 0.3f, 0.5f, 1.0f));// was:   0.1f, 0.1f, 0.3f, 1.0f
 	default_point_light.set_position(gef::Vector4(-500.0f, 400.0f, 700.0f));
 	default_shader_data.AddPointLight(default_point_light);
 }
@@ -299,6 +305,19 @@ void SceneApp::UpdateSimulation(float frame_time)
 		}
 		else
 			player->bullets[i]->UpdateFromSimulation(player->bullets[i]->bulletBody);// breaks in here due to them not being initilized
+	}
+
+		// renders enemy's bullets
+	for (int i = 0; i < enemies.size(); i++) {
+		for (int j = 0; j < enemies[i]->bullets.size(); j++) {
+			if (enemies[i]->bullets[j] == NULL) {
+
+			}
+			else {
+				enemies[i]->bullets[j]->UpdateFromSimulation(enemies[i]->bullets[j]->bulletBody);// breaks in here due to them not being initilized
+			}
+		}
+		
 	}
 
 	
@@ -445,22 +464,53 @@ void SceneApp::UpdateSimulation(float frame_time)
 }
 
 void SceneApp::IntroInit() {
+	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	quotes.push_back("'With lapis and magenta iridescence, the camera with wings takes flight.' - Me 2020");
-	quotes.push_back("'I'm tellin' you man, they're security cameras, if you listen closely you can hear \n the electronics.' - Me (again) 2020");
-	quotes.push_back("'Roses are red, my name is dave.\nI suck at poetry, microwave.' - Dave unknown time");
+	quotes.push_back("'I'm tellin' you man, pigeons are drones.' - Me (again) 2020");
+	quotes.push_back("'Roses are red, my name is Dave. I suck at poetry, microwave.' - Dave unknown time");
+	quotes.push_back("'Lifes a party, and I'm the pinata' - spahgetticheerios 2019");
+	quotes.push_back("'Graphic design is my passion' - a cool fella 2016 ");
 	quotes.push_back("'Roll inititive.' - Matt Mercer and every other DM when the party are being vv boring");
-	quotes.push_back("'Lifes a party,\nand I'm the pinãta' - u/spahgetticheerios 2019");
 
+	background = CreateTextureFromPNG("background.png", platform_);
 	whatQuote = rand() % 5;
+
+	// Start timing
+	timer.Reset();
 }
-void SceneApp::IntroRelese() {
+void SceneApp::IntroRelease() {
+	delete sprite_renderer_;
+	sprite_renderer_ = NULL;
+
+	delete background;
+	background = NULL;
 
 }
 void SceneApp::IntroUpdate(float frame_time) {
-
+	if (timer.GetMilliseconds() >= 3500) {
+		IntroRelease();
+		FrontendInit();
+		gameState = LOAD;
+	}
 }
 void SceneApp::IntroRender() {
+	sprite_renderer_->Begin();
 
+	gef::Sprite backgroundSprite;
+	backgroundSprite.set_texture(background);
+	backgroundSprite.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+	backgroundSprite.set_height(platform_.height());
+	backgroundSprite.set_width(platform_.width());// 608 544
+	sprite_renderer_->DrawSprite(backgroundSprite);
+
+	font_->RenderText(
+		sprite_renderer_,
+		gef::Vector4(platform_.width()*0.5f, platform_.height()*0.75f, -0.99f),
+		1.0f,
+		0xffffffff,
+		gef::TJ_CENTRE,
+		quotes[whatQuote].c_str());// displays the quote 
+	sprite_renderer_->End();
 }
 
 
@@ -468,9 +518,14 @@ void SceneApp::FrontendInit()
 {
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	button_icon_ = CreateTextureFromPNG("playstation-cross-dark-icon.png", platform_);
-	controls = CreateTextureFromPNG("controls.png", platform_);
-	gatman = CreateTextureFromPNG("gatman.png", platform_);
-	difficulty = 0;
+	backgroundMenu = CreateTextureFromPNG("backgroundMenu.png", platform_);
+	clearHeart = CreateTextureFromPNG("u cleared.png", platform_);
+	aceHeart = CreateTextureFromPNG("u madlad.png", platform_);
+	difficulty = 1;
+	platform_.set_render_target_clear_colour(gef::Colour(0.5f, 0.8f, 0.5f));// rgba
+
+	changingMusicVol = 0, changingSFXVol = 0, changingMasterVol = 0;
+	musicVolText, SFXVolText, masterVolText = 5;
 }
 
 void SceneApp::FrontendRelease()
@@ -478,11 +533,12 @@ void SceneApp::FrontendRelease()
 	delete button_icon_;
 	button_icon_ = NULL;
 
-	delete controls;
-	controls = NULL;
+	delete backgroundMenu;
+	backgroundMenu = NULL;
+
 }
 
-void SceneApp::FrontendUpdate(float frame_time)
+void SceneApp::FrontendUpdate(float frame_time)// welcome to "if" land!
 {
 	const gef::SonyController* controller = input_manager_->controller_input()->GetController(0);
 	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
@@ -492,15 +548,121 @@ void SceneApp::FrontendUpdate(float frame_time)
 		GameInit();
 	}
 
-	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_1)) {
-		difficulty = 1;
+	if (!changingMusicVol && !changingSFXVol && !changingMasterVol) {
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_1)) {
+			difficulty = 1;
+			platform_.set_render_target_clear_colour(gef::Colour(0.5f, 0.8f, 0.5f));// rgba
+		}
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_2)) {
+			difficulty = 2;
+			platform_.set_render_target_clear_colour(gef::Colour(0.3f, 0.3f, 1.0f));// rgba
+		}
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_3)) {
+			difficulty = 3;
+			platform_.set_render_target_clear_colour(gef::Colour(0, 0, 0));// rgba
+		}
 	}
-	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_2)) {
-		difficulty = 2;
+
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_M)) {
+		changingMusicVol = !changingMusicVol;
 	}
-	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_3)) {
-		difficulty = 3;
+
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_S)) {
+		changingSFXVol = !changingSFXVol;
 	}
+
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_A)) {
+		changingMasterVol = !changingMasterVol;
+	} 
+
+#pragma region Music Stuff
+	// music vol
+	if (changingMusicVol) {
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_1)) {
+			musicVolumeInfo.volume = 0.2;
+			musicVolText = 1;
+		}
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_2)) {
+			musicVolumeInfo.volume = 0.4;
+			musicVolText = 2;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_3)) {
+			musicVolumeInfo.volume = 0.6;
+			musicVolText = 3;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_4)) {
+			musicVolumeInfo.volume = 0.8;
+			musicVolText = 4;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_5)) {
+			musicVolumeInfo.volume = 1.0;
+			musicVolText = 5;
+		}
+	}
+
+	// SFX vol
+	if (changingSFXVol) {
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_1)) {
+			SFXVolumeInfo.volume = 0.2;
+			SFXVolText = 1;
+		}
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_2)) {
+			SFXVolumeInfo.volume = 0.4;
+			SFXVolText = 2;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_3)) {
+			SFXVolumeInfo.volume = 0.6;
+			SFXVolText = 3;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_4)) {
+			SFXVolumeInfo.volume = 0.8;
+			SFXVolText = 4;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_5)) {
+			SFXVolumeInfo.volume = 1.0;
+			SFXVolText = 5;
+		}
+	}
+
+	// master vol
+	if (changingMasterVol) {
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_1)) {
+			masterVolumeInfo.volume = 0.2;
+			masterVolText = 1;
+		}
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_2)) {
+			masterVolumeInfo.volume = 0.4;
+			masterVolText = 2;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_3)) {
+			masterVolumeInfo.volume = 0.6;
+			masterVolText = 3;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_4)) {
+			masterVolumeInfo.volume = 0.8;
+			masterVolText = 4;
+		}
+
+		if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_5)) {
+			masterVolumeInfo.volume = 1.0;
+			masterVolText = 5;
+		}
+	}
+#pragma endregion
+
+
+	
+
+
+
 	/*if (controller->buttons_down() & gef_SONY_CTRL_CROSS) {
 		FrontendRelease();
 		gameState = GAME;
@@ -514,30 +676,78 @@ void SceneApp::FrontendRender()
 	sprite_renderer_->Begin();
 	
 	// render controls
-	gef::Sprite controlsGraphic;
-	controlsGraphic.set_texture(controls);
-	controlsGraphic.set_position(gef::Vector4(platform_.width()*0.85f, platform_.height()*0.5f, -0.99f));
-	controlsGraphic.set_height(304.0f);
-	controlsGraphic.set_width(272.0f);// 608 544
-	sprite_renderer_->DrawSprite(controlsGraphic);
+	gef::Sprite background;
+	background.set_texture(backgroundMenu);
+	background.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+	background.set_height(platform_.height());
+	background.set_width(platform_.width());// 608 544
+	sprite_renderer_->DrawSprite(background);
 
-	// render gatman text
-	gef::Sprite gatmanGraphic;
-	gatmanGraphic.set_texture(gatman);
-	gatmanGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
-	gatmanGraphic.set_height(120.0f);
-	gatmanGraphic.set_width(957.0f);// 608 544
-	sprite_renderer_->DrawSprite(gatmanGraphic);
 
-	/*// render clear heart
-	gef::Sprite winGraphic;
-	winGraphic.set_texture(clearHeart);
-	winGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
-	winGraphic.set_height(24.0f);
-	winGraphic.set_width(27.0f);// 27 24
-	sprite_renderer_->DrawSprite(winGraphic);
+	// render clear heart or aced heart next to easy
+	if (easyBeat) {
+		if (easyAced) {
+			gef::Sprite winGraphic;
+			winGraphic.set_texture(aceHeart);
+			winGraphic.set_position(gef::Vector4(platform_.width()*0.25f, platform_.height()*0.47f, -0.99f));// pos for easy text
+			winGraphic.set_height(24.0f);
+			winGraphic.set_width(27.0f);// 27 24
+			sprite_renderer_->DrawSprite(winGraphic);
+		}
+		else {
+			gef::Sprite winGraphic;
+			winGraphic.set_texture(clearHeart);
+			winGraphic.set_position(gef::Vector4(platform_.width()*0.25f, platform_.height()*0.47f, -0.99f));// pos for easy text
+			winGraphic.set_height(24.0f);
+			winGraphic.set_width(27.0f);// 27 24
+			sprite_renderer_->DrawSprite(winGraphic);
+		}
+	}
 
-	// render ace heart
+	// render clear heart or aced heart next to regular
+	if (regularBeat) {
+		if (regularAced) {
+			gef::Sprite winGraphic;
+			winGraphic.set_texture(aceHeart);
+			winGraphic.set_position(gef::Vector4(platform_.width()*0.25f, platform_.height()*0.54f, -0.99f));// pos for easy text
+			winGraphic.set_height(24.0f);
+			winGraphic.set_width(27.0f);// 27 24
+			sprite_renderer_->DrawSprite(winGraphic);
+		}
+		else {
+			gef::Sprite winGraphic;
+			winGraphic.set_texture(clearHeart);
+			winGraphic.set_position(gef::Vector4(platform_.width()*0.25f, platform_.height()*0.54f, -0.99f));// pos for easy text
+			winGraphic.set_height(24.0f);
+			winGraphic.set_width(27.0f);// 27 24
+			sprite_renderer_->DrawSprite(winGraphic);
+		}
+	}
+
+	// render clear heart or aced heart next to hard
+	if (hardBeat) {
+		if (hardAced) {
+			gef::Sprite winGraphic;
+			winGraphic.set_texture(aceHeart);
+			winGraphic.set_position(gef::Vector4(platform_.width()*0.25f, platform_.height()*0.60f, -0.99f));// pos for easy text
+			winGraphic.set_height(24.0f);
+			winGraphic.set_width(27.0f);// 27 24
+			sprite_renderer_->DrawSprite(winGraphic);
+		}
+		else {
+			gef::Sprite winGraphic;
+			winGraphic.set_texture(clearHeart);
+			winGraphic.set_position(gef::Vector4(platform_.width()*0.25f, platform_.height()*0.60f, -0.99f));// pos for easy text
+			winGraphic.set_height(24.0f);
+			winGraphic.set_width(27.0f);// 27 24
+			sprite_renderer_->DrawSprite(winGraphic);
+		}
+	}
+
+
+
+
+	/*// render ace heart
 	gef::Sprite aceGraphic;
 	aceGraphic.set_texture(aceHeart);
 	aceGraphic.set_position(gef::Vector4(platform_.width()*0.45f, platform_.height()*0.10f, -0.99f));
@@ -549,7 +759,7 @@ void SceneApp::FrontendRender()
 		sprite_renderer_,
 		gef::Vector4(platform_.width()*0.01f, platform_.height()*0.89f, -0.99f),
 		1.0f,
-		0xffffffff,
+		0xff000000,
 		gef::TJ_LEFT,
 		"Press 1, 2 or 3 to change the difficulty to: 1 = Easy --- 2 = Regular --- 3 = Hard");
 
@@ -557,13 +767,13 @@ void SceneApp::FrontendRender()
 		sprite_renderer_,
 		gef::Vector4(platform_.width()*0.01f, platform_.height()*0.94f, -0.99f),
 		1.0f,
-		0xffffffff,
+		0xff000000,
 		gef::TJ_LEFT,
 		"Difficulty: %1.0f", float(difficulty));// apparently it wont display numbers unless it's a float, so mask time
 
 
 	// render "PRESS" text
-	font_->RenderText(
+	/*font_->RenderText(
 		sprite_renderer_,
 		gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f - 56.0f, -0.99f),
 		1.0f,
@@ -587,7 +797,7 @@ void SceneApp::FrontendRender()
 		1.0f,
 		0xffffffff,
 		gef::TJ_CENTRE,
-		"TO START");
+		"TO START");*/
 
 
 	DrawHUD();
@@ -625,33 +835,16 @@ void SceneApp::DeadRender() {
 void SceneApp::WinInit() {
 	sprite_renderer_ = gef::SpriteRenderer::Create(platform_);
 	youWin = CreateTextureFromPNG("u win.png", platform_);
-}
-void SceneApp::WinRelease() {
-	delete sprite_renderer_;
-	sprite_renderer_ = NULL;
-}
-void SceneApp::WinUpdate(float frame_time) {
-	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
-//gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
-	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {
-		GameRelease();
-		WinRelease();
-		gameState = LOAD;
-		FrontendInit();
-		return;
-	}
-}
-void SceneApp::WinRender() {
-	gef::Sprite win;
-	if (player->health == 100) {
+	youAced = CreateTextureFromPNG("u ace.png", platform_);
+	if (player->health >= 100) {
 		switch (difficulty) {
-		case 1: easyBeat, easyAced = 1;
+		case 1: easyBeat = 1, easyAced = 1, aced = 1;
 			break;
 
-		case 2: regularBeat, regularAced = 1;
+		case 2: regularBeat = 1, regularAced = 1, aced = 1;
 			break;
 
-		case 3: hardBeat, hardAced = 1;
+		case 3: hardBeat = 1, hardAced = 1, aced = 1;
 			break;
 
 		}
@@ -669,11 +862,54 @@ void SceneApp::WinRender() {
 
 		}
 	}
-	win.set_texture(youWin);
-	win.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
-	win.set_height(205.0f);// dimentions of pic = 637 * 205
-	win.set_width(637.0f);
-	sprite_renderer_->DrawSprite(win);
+}
+void SceneApp::WinRelease() {
+	delete sprite_renderer_;
+	sprite_renderer_ = NULL;
+
+	delete youWin;
+	youWin = NULL;
+
+	delete youAced;
+	youAced = NULL;
+
+	aced = 0;
+}
+void SceneApp::WinUpdate(float frame_time) {
+	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+	//gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
+	if (input_manager_->keyboard() && keyboard->IsKeyPressed(gef::Keyboard::KC_W)) {
+		GameRelease();
+		WinRelease();
+		gameState = LOAD;
+		FrontendInit();
+		return;
+	}
+}
+void SceneApp::WinRender() {
+
+	if (aced) {
+		gef::Sprite aced;
+
+		aced.set_texture(youAced);
+		aced.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+		aced.set_height(205.0f);// dimentions of pic = 637 * 205
+		aced.set_width(637.0f);
+		sprite_renderer_->DrawSprite(aced);
+	}
+	else {
+		gef::Sprite win;
+
+		win.set_texture(youWin);
+		win.set_position(gef::Vector4(platform_.width()*0.5f, platform_.height()*0.5f, -0.99f));
+		win.set_height(205.0f);// dimentions of pic = 637 * 205
+		win.set_width(637.0f);
+		sprite_renderer_->DrawSprite(win);
+	}
+
+
+
+
 }
 
 void SceneApp::PauseInit() {
@@ -741,12 +977,38 @@ void SceneApp::GameInit()
 	//audio_manager_ = gef::AudioManager::Create();
 	//soundBoxCollected = audio_manager_->LoadSample("box_collected.wav", platform_);
 	//audio_manager_->LoadMusic("music.wav", platform_);
+	switch (difficulty) {
+	case 1: {
+		platformCount = 1;// was 15
+		enemyHealthMod = 20;
 
+	}
+			break;
+
+	case 2: {
+		platformCount = 2;// WAS 30
+		enemyHealthMod = 50;
+
+	}
+			break;
+
+	case 3: {
+		platformCount = 3;// was 50
+		enemyHealthMod = 120;
+
+
+	}
+			break;
+	}
+	for (int i = 0; i < platformCount; i++)// initilizes the enemy randomized pattern cast
+		enemiesCast.push_back(0);
 
 	InitPlayer();
 	InitGround();
 	InitEnemies();
 	InitGoal();
+
+	easyBackground = CreateTextureFromPNG("easyBackground.png", platform_);
 }
 
 void SceneApp::GameRelease()
@@ -790,7 +1052,7 @@ void SceneApp::GameRelease()
 	}*/
 
 
-	for (int i = 0; i < enemiesCast.size(); i++) {
+	for (int i = 0; i < enemiesCast.size(); i++) {// resets the cast
 		enemiesCast[i] = 0;
 	}
 
@@ -806,14 +1068,20 @@ void SceneApp::GameRelease()
 	}
 	platforms.clear();
 	
-	// more things need to be in here but i dont know what
+	delete easyBackground;
+	easyBackground = NULL;
 
+	/*delete regularBackground;
+	regularBackground = NULL;
+
+	delete hardBackground;
+	hardBackground = NULL;*/
 }
 
 void SceneApp::GameUpdate(float frame_time)
 {
 	const gef::SonyController* controller = input_manager_->controller_input()->GetController(0);
-	
+
 	UpdateSimulation(frame_time);// crashes here 
 
 	gef::Keyboard* keyboard = input_manager_->keyboard();// makes a local keyboard for the front end update so it can read keyboard input
@@ -860,14 +1128,14 @@ void SceneApp::GameUpdate(float frame_time)
 		player->playerUpdate(frame_time);
 
 	}
-	
+
 #pragma endregion
 
 
 
 
 
-	
+
 
 #pragma region Freecam Controls
 	if (whatCam == 0) {
@@ -902,14 +1170,14 @@ void SceneApp::GameUpdate(float frame_time)
 			freeCam->rotRight(frame_time);
 		}
 	}
-	
+
 
 	playerCam->setPosition(gef::Vector4(player->playerBody->GetPosition().x + 2.5f, player->playerBody->GetPosition().y + 1.0f, 10.0f));// <-- this does infact work, sets the position of the camea to be a little bit off set for the center of the player so you can see that he has a hat on
 	playerCam->setLookAt(gef::Vector4(player->playerBody->GetPosition().x, player->playerBody->GetPosition().y, 0.0f));// its just the camera is still only looking up rather than at the box :/
-	
+
 #pragma endregion
-	
-	
+
+
 
 
 	b2Vec2 tempVelo = player->playerBody->GetLinearVelocity();
@@ -932,18 +1200,32 @@ void SceneApp::GameUpdate(float frame_time)
 	// updates goal
 	goal->goalUpdate(frame_time);
 
-	// updates enemys
+	// updates enemys with dt and player's position
+	b2Vec2 playerPos = player->playerBody->GetPosition();// this is done first to reduce the amount of accessses to playerbod
+
 	for (int i = 0; i < enemies.size(); i++) {
-		enemies[i]->enemyUpdate(frame_time);
+		enemies[i]->enemyUpdate(frame_time, playerPos);
 	}
 
-	// updates bullets
+	// updates player's bullets
 	for (int i = 0; i < player->bullets.size(); i++) {
 		if (player->bullets[i] == NULL) {
 
 		}
 		else
 			player->bullets[i]->bulletUpdate(frame_time);
+	}
+
+	// updates enemy's bullets
+	for (int i = 0; i < enemies.size(); i++) {
+		for (int j = 0; j < enemies[i]->bullets.size(); j++) {
+			if (enemies[i]->bullets[j] == NULL) {
+
+			}
+			else {
+				enemies[i]->bullets[j]->bulletUpdate(frame_time);// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) REEEEEEEE
+			}
+		}
 	}
 
 	//audio_manager_->PlayMusic();
@@ -973,47 +1255,59 @@ void SceneApp::GameRender()
 
 	}
 
+
 	// draw 3d geometry
 	renderer_3d_->Begin();
 
-	// draw ground
-	// note for future me: having an array of platforms and just looping through them all here:
-	renderer_3d_->DrawMesh(*ground);
-	for (int i = 0; i < platforms.size(); i++) {
-		renderer_3d_->DrawMesh(*platforms[i]);
-	}
-	renderer_3d_->set_override_material(&primitive_builder_->red_material());
-	for (int i = 0; i < enemies.size(); i++) {
-
-		renderer_3d_->DrawMesh(*enemies[i]);
-	}
-	renderer_3d_->set_override_material(NULL);
-	for (int i = 0; i < player->bullets.size(); i++) {
-		if (player->bullets[i] == NULL) {
-			
-		}// this is where its crashing
-		else {
-			renderer_3d_->DrawMesh(*player->bullets[i]);// crashes here :( bullet isnt initilised due to the argument being null (in vertex buffer) REEEEEEEE
+		// draw ground
+		renderer_3d_->DrawMesh(*ground);
+		for (int i = 0; i < platforms.size(); i++) {
+			renderer_3d_->DrawMesh(*platforms[i]);
 		}
-		
-	}
-	
+		renderer_3d_->set_override_material(&primitive_builder_->red_material());
+		for (int i = 0; i < enemies.size(); i++) {
+
+			renderer_3d_->DrawMesh(*enemies[i]);
+		}
+		renderer_3d_->set_override_material(NULL);
+
+		// renders player's bullets
+		for (int i = 0; i < player->bullets.size(); i++) {
+			if (player->bullets[i] == NULL) {
+			
+			}
+			else {
+				renderer_3d_->DrawMesh(*player->bullets[i]);
+			}
+		}
+
+		// renders enemy's bullets
+		for (int i = 0; i < enemies.size(); i++) {
+			for(int j = 0; j < enemies[i]->bullets.size(); j++)
+			if (enemies[i]->bullets[j] == NULL) {
+
+			}
+			else {
+				renderer_3d_->DrawMesh(*enemies[i]->bullets[j]);
+			}
+		}
 
 
-	// draw player
-	renderer_3d_->set_override_material(&primitive_builder_->blue_material());
-	renderer_3d_->DrawMesh(*player);
-	renderer_3d_->set_override_material(NULL);
 
-	// draw goal
-	renderer_3d_->set_override_material(&primitive_builder_->green_material());
-	renderer_3d_->DrawMesh(*goal);
-	renderer_3d_->set_override_material(NULL);
+		// renders player
+		renderer_3d_->set_override_material(&primitive_builder_->blue_material());
+		renderer_3d_->DrawMesh(*player);
+		renderer_3d_->set_override_material(NULL);
+
+		// renders goal
+		renderer_3d_->set_override_material(&primitive_builder_->green_material());
+		renderer_3d_->DrawMesh(*goal);
+		renderer_3d_->set_override_material(NULL);
 
 	renderer_3d_->End();
 
 	// start drawing sprites, but don't clear the frame buffer
-	sprite_renderer_->Begin(false);// this is null for some reason when trying to unpause the game
+	sprite_renderer_->Begin(false);
 	DrawHUD();
 	sprite_renderer_->End();
 }
