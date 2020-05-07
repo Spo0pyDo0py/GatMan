@@ -13,14 +13,6 @@
 #include <vector>
 #include <random>
 #include <time.h>
-#include <chrono>// my favorate megaman character has the same ending to hs name
-
-
-using std::chrono::duration_cast;
-using std::chrono::seconds;
-// define the alias "theClock" for the clock type used
-typedef std::chrono::steady_clock theClock;
-
 
 // FRAMEWORK FORWARD DECLARATIONS
 enum GAMESTATE {
@@ -33,7 +25,7 @@ enum GAMESTATE {
 };
 
 
-namespace gef
+namespace gef// init for geffery
 {
 	class Platform;
 	class SpriteRenderer;
@@ -63,10 +55,12 @@ private:
 	void SetupLights();
 	void UpdateSimulation(float frame_time);
     
+
 	gef::SpriteRenderer* sprite_renderer_;
 	gef::Font* font_;
 	gef::InputManager* input_manager_;
 	gef::AudioManager* audio_manager_;
+	// progress info declerations
 	int difficulty;
 	bool easyBeat;
 	bool easyAced;
@@ -78,8 +72,15 @@ private:
 	b2Timer timer;// timer for the intro
 
 	// audio variables
-//	int32 soundBoxCollected = -1;// loading the audio sample returns some info we store here so we can call it 
-//	int32 soundBoxCollectedVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
+	int32 introSound = -1;// loading the audio sample returns some info we store here so we can call it 
+	int32 gatmanShotSound = -1;
+	int32 enemyShotSound = -1;
+	int32 hitmarkerSound = -1;
+	int32 playerDeadSound = -1;
+	int32 winSound = -1;
+	int32 secretSound = -1;
+
+	//int32 introVID = -1;// calling the sound returns this voice id (VID) so we can do stuff like stop it, make it louder, etc
 	gef::VolumeInfo musicVolumeInfo;// controls the SFX's volume
 	gef::VolumeInfo SFXVolumeInfo;// controls the SFX's volume
 	gef::VolumeInfo masterVolumeInfo;// controls the SFX's volume
@@ -117,6 +118,7 @@ private:
 	// DEAD DECLARATIONS
 	//
 	gef::Texture* youDied;
+	bool deadFlag;
 
 	//
 	// WIN DECLARATIONS
@@ -124,6 +126,7 @@ private:
 	gef::Texture* youWin;
 	gef::Texture* youAced;
 	bool aced;
+	bool winFlag;
 
 	//
 	// PAUSE DECLARATIONS
